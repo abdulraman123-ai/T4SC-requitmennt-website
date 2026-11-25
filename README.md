@@ -1,29 +1,53 @@
-# T4SC Recruitment Website
+# T4SC — Tech 4 Skill Community
 
-T4SC recruitment and admissions platform, based on a copy of the Axion Marketplace Next.js project structure.
+A multi-page recruitment and admissions website for T4SC, based on the Axion Marketplace Next.js project foundation and adapted for T4SC.
 
-## Experience
-- Open admissions for everyone; no age-based admissions restrictions or separate age-based pathways.
-- Four departments: AI & Machine Learning; Game Development; Full Stack Development & System Architecture; Cybersecurity & Systems Security.
-- Beginner, Developing and Advanced assessment levels.
-- Beginner-friendly admissions; previous technical experience, portfolio or formal qualifications are not compulsory.
-- Human review; assessment scores guide decisions and are not automatic admissions decisions.
-- Animated background with reduced-motion support.
-- Applicant form, admissions information, department pages and applicant portal shell.
+## Public pages
+- Home, About, Departments, Admissions, Recruitment journey, Assessment framework
+- Multi-step application form with local draft saving and a review stage
+- Community code of conduct, privacy and accessibility pages
+- Applicant portal for private status lookup
+- General screening, department/level assessment, practical task and completion pages
+- Reviewer console landing page (secure reviewer dashboard still requires database authentication/roles)
+
+## Application questions
+The form follows the T4SC Recruitment & Admissions System Specification:
+- Preferred name, email, country/region and optional alternative contact
+- Primary department, optional secondary interest and reason for department choice
+- Beginner / Developing / Advanced level, what the applicant has tried or built, optional tools/topics
+- Motivation and a technology problem the applicant would like to solve
+- Weekly availability, session/team availability, device and connectivity
+- Community-rules, honesty and privacy acknowledgements
+- Optional accessibility/assessment adjustments
+
+No exact date of birth or age gate is used. Device/connectivity answers are for participation planning, not a measure of ability. Previous technical experience and a beginner portfolio are not compulsory.
+
+## Assessment flow
+1. Application
+2. Common general screening (reasoning, problem decomposition, learning response, communication and judgement; approximately 20–30 minutes)
+3. Department assessment (4 departments × 3 experience levels)
+4. Practical task (approximately 30–60 minutes; written, pseudocode, small code or no-code alternatives)
+5. Human review and private decision communication
+
+Scoring framework: reasoning 15, department fundamentals 25, practical task 35, learning/feedback 15, communication/integrity/collaboration 10. Automated checks do not make final admissions decisions. Cybersecurity tasks use fictional scenarios, supplied samples or explicitly authorised labs only.
+
+## Design and accessibility
+Responsive multi-page navigation, dark navy base with warm orange/yellow accents, animated ambient background, scroll reveal, floating/orbiting hero elements and reduced-motion support. Motion is CSS-led and lightweight; the site respects the user's reduced-motion preference.
 
 ## Stack
 Next.js 16, React 19, TypeScript, Tailwind CSS 4, Supabase and Vercel.
 
-## Supabase setup
-Create a **separate T4SC Supabase project**. Do not reuse Axion credentials or apply the old Axion migrations. Apply only `supabase/migrations/0001_t4sc_recruitment.sql` and configure:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (or publishable key)
-- `SUPABASE_SERVICE_ROLE_KEY` (server only; never expose publicly)
+## Supabase setup required before live submissions
+Create a separate T4SC Supabase project. Do not reuse Axion credentials or the Axion database. Apply:
+- supabase/migrations/0001_t4sc_recruitment.sql
+- supabase/migrations/0002_application_and_assessment_fields.sql
 
-Before accepting live applications, configure server-side insertion with the service role key, reviewer authentication/roles, and explicit RLS policies. Public applicant data and reviewer notes must remain private.
+Configure Vercel environment variables:
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY (or publishable key)
+- SUPABASE_SERVICE_ROLE_KEY (server only; never expose publicly)
 
-## Local development
-```bash
-npm install
-npm run dev
-```
+Application and assessment API routes use the service role key on the server only. Reviewer access must be implemented with authenticated roles and appropriate RLS policies before real reviewers access data. The status endpoint exposes only the applicant's own stage, never answers, scores or reviewer notes.
+
+## Founder decisions still to confirm before public recruitment promotion
+Geographic eligibility, participation mode, weekly minimum commitment, intake capacity, recruitment deadline/window, assessment language options, application fee, foundation-route support, reapplication period and privacy/retention details. The public copy deliberately does not invent these.
