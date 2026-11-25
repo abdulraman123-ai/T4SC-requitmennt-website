@@ -2,7 +2,7 @@
 
 Tech 4 Skill Community (T4SC) — Learn. Build. Play.
 
-A mobile-first, low-bandwidth admissions portal for T4SC. Public applications are open to eligible applicants; membership remains selective and requires assessment, human review, and controlled onboarding.
+A mobile-first, low-bandwidth admissions portal open to people of all ages, backgrounds, and experience levels. Membership remains selective and requires assessment, human review, and controlled onboarding.
 
 ## Project status
 
@@ -11,9 +11,10 @@ Planning and implementation are staged. The repository is being adapted from the
 ## Initial operating defaults
 
 - Nationwide Nigeria, online-first participation; optional Lagos activities when organised.
-- All ages may express interest, subject to age-appropriate privacy, consent, safeguarding, and platform rules.
+- Open to everyone regardless of age, educational background, qualifications, or prior technical experience.
+- No minimum age requirement in T4SC admissions criteria and no compulsory date-of-birth field.
 - No application fee.
-- Beginner, Developing, and Advanced assessment routes; level controls the assessment route, not admission eligibility.
+- Beginner, Developing, and Advanced assessment routes; level controls assessment difficulty, not admission eligibility.
 - 4–6 hours per week as a proposed commitment guide.
 - Six-week recruitment window and an initial target of up to 12 admits (up to 3 per department), only where reviewer and mentor capacity supports it.
 - Four-week foundation pathway and two-to-three-week onboarding period.
@@ -30,14 +31,16 @@ These are planning defaults and must be confirmed by T4SC before public launch.
 3. Full Stack Development & System Architecture
 4. Cybersecurity & Systems Security
 
-## Non-negotiable safeguards
+## Non-negotiable principles
 
+- No age-based admissions restrictions or separate age-based assessment routes.
 - No automatic Telegram or community admission after submission.
 - Applicant data and reviewer notes are private.
+- Privacy, respectful conduct, accessibility, and appropriate safeguarding apply to everyone.
 - No paid tools or high-end hardware are required for beginner assessments.
 - No real-world offensive security testing; cybersecurity assessments use fictional scenarios and authorised practice environments only.
-- Under-18 applicants receive age-appropriate safeguards and guardian involvement where required. Under-13 applicants use a guardian-mediated route and are never asked to evade platform age restrictions.
 - Submitted assessment work is for evaluation only and is not reused as T4SC production work without separate permission and credit.
+- Collect only information needed to operate admissions. Any legally required consent or safeguards must be handled proportionately without turning age into an admissions disadvantage.
 
 ## Technology direction
 
