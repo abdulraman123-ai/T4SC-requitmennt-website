@@ -14,6 +14,13 @@ const stages = [
   { number: "04", title: "Practical task", description: "Show your approach through a small, bounded challenge." },
 ];
 
+const communitySteps = [
+  { number: "01", title: "Discover T4SC", description: "Explore our departments, expectations and learning culture." },
+  { number: "02", title: "Apply", description: "Submit your application and tell us where your interests lie." },
+  { number: "03", title: "Complete screening", description: "Complete the required screening, department assessment and practical task." },
+  { number: "04", title: "Receive your invitation", description: "Successful applicants receive private access to the T4SC Telegram community." },
+];
+
 export default function Home() {
   return (
     <main>
@@ -107,6 +114,27 @@ export default function Home() {
           ))}
         </div>
         <Link href="/how-it-works" className="text-link">See the complete recruitment journey ↗</Link>
+      </section>
+
+      <section className="community-section" id="join-community" data-reveal>
+        <div className="community-orbit" aria-hidden="true"><span /><span /><span /><b>✳</b></div>
+        <div className="community-content">
+          <div className="section-kicker">/ JOIN T4SC COMMUNITY</div>
+          <h2>Get involved.<br /><span className="gradient-text">Earn your place.</span></h2>
+          <p className="community-intro">T4SC brings curious people together to learn, build and collaborate. Community access follows the admissions process so that every member joins through the same fair journey.</p>
+          <div className="community-flow">
+            {communitySteps.map((step) => (
+              <article className="community-step" key={step.number}>
+                <span>{step.number}</span>
+                <div><h3>{step.title}</h3><p>{step.description}</p></div>
+              </article>
+            ))}
+          </div>
+          <div className="community-actions">
+            <Link href="/apply" className="button">Apply to join T4SC <span aria-hidden="true">↗</span></Link>
+            <p>Telegram invitations are shared privately with successful applicants after screening and assessment. There is no public group invite.</p>
+          </div>
+        </div>
       </section>
 
       <section className="cta-section" data-reveal>
