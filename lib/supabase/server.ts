@@ -82,6 +82,10 @@ function createFallbackClient() {
         data: { user: null, session: null },
         error: { message: "Supabase is not configured yet.", status: 500 },
       }),
+      verifyOtp: async () => ({
+        data: { user: null, session: null },
+        error: { message: "Supabase is not configured yet.", status: 500 },
+      }),
     },
     from() {
       return createFallbackQueryBuilder([]);

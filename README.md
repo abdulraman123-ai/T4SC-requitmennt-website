@@ -8,7 +8,8 @@ A multi-page recruitment and admissions website for T4SC, based on the Axion Mar
 - Community code of conduct, privacy and accessibility pages
 - Applicant portal for private status lookup
 - General screening, department/level assessment, practical task and completion pages
-- Reviewer console landing page (secure reviewer dashboard still requires database authentication/roles)
+- Team sign-in page with Supabase email/password authentication and a protected reviewer workspace landing page
+- Applicant portal for private status lookup
 
 ## Application questions
 The form follows the T4SC Recruitment & Admissions System Specification:
@@ -44,10 +45,17 @@ Create a separate T4SC Supabase project. Do not reuse Axion credentials or the A
 
 Configure Vercel environment variables:
 - NEXT_PUBLIC_SUPABASE_URL
-- NEXT_PUBLIC_SUPABASE_ANON_KEY (or publishable key)
+- NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (preferred) or NEXT_PUBLIC_SUPABASE_ANON_KEY
 - SUPABASE_SERVICE_ROLE_KEY (server only; never expose publicly)
 
 Application and assessment API routes use the service role key on the server only. Reviewer access must be implemented with authenticated roles and appropriate RLS policies before real reviewers access data. The status endpoint exposes only the applicant's own stage, never answers, scores or reviewer notes.
 
 ## Founder decisions still to confirm before public recruitment promotion
 Geographic eligibility, participation mode, weekly minimum commitment, intake capacity, recruitment deadline/window, assessment language options, application fee, foundation-route support, reapplication period and privacy/retention details. The public copy deliberately does not invent these.
+
+
+## Team sign-in
+- `/login` is for authorised T4SC team accounts only; public self-registration is disabled.
+- `/admin` requires a valid Supabase Auth session. The current page confirms authentication but intentionally does not expose applicant data until T4SC reviewer roles and matching RLS policies are implemented.
+- `/auth/callback` supports Supabase invite, email OTP and PKCE callback links. Configure the Supabase Auth Site URL and redirect allow-list to include the production domain and `/auth/callback`.
+- The browser uses only the Supabase publishable/anon key. Keep all service-role or secret keys server-only.
