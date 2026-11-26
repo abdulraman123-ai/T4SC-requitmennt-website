@@ -1,6 +1,7 @@
 import type {Metadata,Viewport} from "next";
 import {Geist,Geist_Mono} from "next/font/google";
 import "./globals.css";
+import "./community.css";
 import {SiteHeader,SiteFooter} from "@/components/site-chrome";
 import {MotionEffects} from "@/components/motion-effects";
 const geist=Geist({subsets:["latin"],variable:"--font-geist-sans"});
