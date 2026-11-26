@@ -59,3 +59,10 @@ Geographic eligibility, participation mode, weekly minimum commitment, intake ca
 - `/admin` requires a valid Supabase Auth session. The current page confirms authentication but intentionally does not expose applicant data until T4SC reviewer roles and matching RLS policies are implemented.
 - `/auth/callback` supports Supabase invite, email OTP and PKCE callback links. Configure the Supabase Auth Site URL and redirect allow-list to include the production domain and `/auth/callback`.
 - The browser uses only the Supabase publishable/anon key. Keep all service-role or secret keys server-only.
+
+## Join T4SC Community and private Telegram access
+- The public homepage includes a dedicated Join T4SC Community section. Its CTA leads to the application; it does not expose a Telegram invite.
+- The applicant portal requests a Telegram invitation only after the applicant's reference and email have been verified and the recorded status is `admitted`, `onboarding` or `active_member`.
+- Configure `T4SC_TELEGRAM_INVITE_URL` as a **Sensitive** server-side Vercel environment variable. Never prefix it with `NEXT_PUBLIC_` and never put the invite in client components or source control.
+- The `/api/community-access` route re-checks the application status on the server before returning the invite and sends `Cache-Control: no-store`.
+- A shared Telegram invite can still be forwarded by a recipient. For stricter one-person admission, replace it later with unique, limited-use Telegram invite links generated through an authenticated Telegram bot.
