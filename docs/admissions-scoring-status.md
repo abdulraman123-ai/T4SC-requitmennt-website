@@ -97,8 +97,8 @@ The feature branch removes the superseded five-component weighting and draft pas
 - `assessment_submissions`: zero rows at the last verification.
 - `assessment_attempts`: zero rows at the last verification. No real applicant attempt was created for testing.
 - Answer-key and attempt tables: RLS enabled; `anon` and `authenticated` cannot select; `service_role` can.
-- Existing unit suites: 21 tests previously passed. The new application-schema suite passed **15/15** on Node 22.16.0. A GitHub Actions workflow now runs all four test files together on pushes and pull requests.
-- Latest Next.js preview after the application schema changes was **READY** at commit `8b5ace8369c5323990f8eaec2e8f937d703da9ff`. Additional test/CI/doc changes have since been pushed; verify the newest Vercel preview/check before treating the latest branch as build-verified.
+- GitHub Actions ran all four test files on the latest branch commit: **36/36 passed, 0 failed**.
+- Latest Next.js preview is **READY** at commit `c99a109fe27baee3296d59e8e7017755764c53b3`: https://t4sc-recruitment-website-2wv51wiww-abdulraman123-ais-projects.vercel.app
 - The Next.js changes remain on the feature branch and have not been merged into `main` or deployed to the production website. Supabase migrations and Edge Function updates are already on the live T4SC backend.
 
 ## Remaining launch blockers
