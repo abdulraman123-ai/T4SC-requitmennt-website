@@ -258,7 +258,7 @@ export default function Apply() {
   );
 
   return (
-    <main className="page-shell application-shell">
+    <main className="page-shell application-shell">{process.env.NEXT_PUBLIC_T4SC_PREVIEW_READ_ONLY === "true" && <div className="notice-panel" role="status"><b>Preview environment · read-only</b><p>This preview is connected to the live T4SC database, but all application and assessment writes are blocked. Do not enter real applicant data here.</p></div>}
       <section className="page-hero compact-hero" data-reveal>
         <span className="eyebrow">T4SC · APPLICATION FORM</span>
         <h1>Your next step<br/><span className="gradient-text">starts with you.</span></h1>
