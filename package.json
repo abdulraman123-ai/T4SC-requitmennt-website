@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "tsc --noEmit",
     "test": "playwright test",
-    "test:admissions": "node --experimental-strip-types --test tests/admissions-scoring.test.ts tests/assessment-objective.test.ts"
+    "test:admissions": "node --experimental-strip-types --test tests/admissions-scoring.test.ts tests/assessment-objective.test.ts tests/assessment-attempts.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
