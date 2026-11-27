@@ -17,7 +17,7 @@ create table if not exists public.assessment_attempts (
   submitted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint assessment_attempts_idempotency_key_length check (length(attempt_token_hash) = 64),
+  constraint assessment_attempts_token_hash_length check (length(attempt_token_hash) = 64),
   constraint assessment_attempts_response_size check (pg_column_size(response) <= 200000)
 );
 
