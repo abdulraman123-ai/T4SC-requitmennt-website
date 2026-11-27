@@ -42,11 +42,11 @@ The scoring core implements the founder-approved 15/25/20/40 weighting and initi
 - The attempt hook persists the attempt envelope on the applicant's device, restores the latest local/server checkpoint, and saves changed responses every 10 seconds. It shows Saving/Saved/Not confirmed; final submission requires a confirmed latest checkpoint and is bound to the official attempt token.
 - No countdown/expiry is active because the approved time-limit settings are not configured. A complete technical/accessibility reopening workflow remains outstanding.
 - The feature-branch applicant access path now uses verified-email magic links and server-side ownership binding. Production Auth redirect configuration and further lifecycle tests remain outstanding. Rate limiting is not yet implemented.
-- A pure, deterministic admissions-lifecycle module now models initial progression, primary and alternative-route checks, technical/scoring-pending states, transfer acceptance, recommendation and the 48-hour offer calculation. It is unit-tested but is not yet connected to persistent admissions records, a server-side decision worker, an offer dashboard or a scheduled expiry job. No real application status or offer is changed by this helper.
+- A pure, deterministic admissions-lifecycle module models initial progression, primary and alternative-route checks, scoring-pending/technical states, transfer acceptance, recommendation and the 48-hour offer calculation. The new private database ledger stores component score provenance, one current admission state per application, append-only decision events, 15-day cycle configuration and formal offers. Service-role-only RPCs enforce offer issue by Day 13, a full 48-hour response window, cycle-end fit and atomic accept/decline/expiry state changes. These are not yet connected to an admissions worker or applicant dashboard, and no expiry scheduler is configured. No existing application has been assigned an admissions state or offer.
 
 ## Current deployment state
 
-Supabase migrations 0001–0010 are applied. The Edge Function is live at version 12. On commit `cac5ad967bafe6716125bcaee70b191d13b4df76`, GitHub Actions passed 58/58 automated tests, TypeScript and the Next.js production build; all 24 static routes generated. The available Vercel preview failure was for stale commit `5d58a11` and reported a duplicated `email` property that is already absent from the current branch. A fresh preview could not be generated because the Vercel free-tier daily deployment API limit had been reached. The production site has not been redeployed from this branch.
+Supabase migrations 0001–0012 are applied. The Edge Function is live at version 12. On commit `cac5ad967bafe6716125bcaee70b191d13b4df76`, GitHub Actions passed 58/58 automated tests, TypeScript and the Next.js production build; all 24 static routes generated. The migration/README commits after this code-tested head trigger another CI run. The available Vercel preview failure was for stale commit `5d58a11` and reported a duplicated `email` property that is already absent from the current branch. A fresh preview could not be generated because the Vercel free-tier daily deployment API limit had been reached. The production site has not been redeployed from this branch.
 
 The GitHub repository is currently public and earlier commits contain browser-side answer-key copies. Treat them as exposed: current branch cleanup does not purge repository history.
 
@@ -68,6 +68,8 @@ The T4SC project is already created separately; do not reuse Axion credentials o
 - supabase/migrations/0008_applicant_auth_identity.sql
 - supabase/migrations/0009_assessment_bank_content.sql
 - supabase/migrations/0010_private_api_proxy_secret.sql
+- supabase/migrations/0011_admissions_runtime_ledger.sql
+- supabase/migrations/0012_admission_offer_hardening.sql
 
 Configure Vercel environment variables:
 - NEXT_PUBLIC_SUPABASE_URL
@@ -83,7 +85,7 @@ Application, status and assessment API routes forward requests to the private-da
 - The exact experience-route calibration, reference-marked pilot evidence and evaluator confidence/escalation behavior must be validated before live automated decisions.
 - The 15-day cycle and Day-13 offer issuance rules are implemented in the pure offer-window helper, but no cycle is configured and no production scheduler is active.
 - Supabase Auth Site URL and `/auth/callback` allow-list still require dashboard verification.
-- No reviewer roles/policies, post-process audit UI, verified correction/recalculation workflow, technical-incident/accessibility reopening route or endpoint rate limiting is live.
+- No reviewer roles/policies, post-process audit UI, verified correction/recalculation workflow, technical-incident/accessibility reopening route or endpoint rate limiting is live. The new append-only decision-event schema is present, but no authority accounts are assigned and no correction console is connected.
 - The connected GitHub repository is public and historic commits contain legacy client-side answer-key samples. Treat those historic samples as exposed; the available GitHub actions here do not provide repository-visibility or history-rewrite controls. Restrict repository access in GitHub and do not reuse those legacy keys in a live assessment.
 - Privacy/retention/deletion, safeguarding and age/guardian-consent, jurisdiction, hosting region/data-location and support-operating decisions remain launch gates.
 
