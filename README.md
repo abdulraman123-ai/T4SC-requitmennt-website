@@ -24,7 +24,7 @@ The new wizard preserves a local draft and the server validates the same limits.
 
 ## Assessment flow — implementation status
 
-The app still uses shortened legacy question screens. They are not the complete official assessment banks in the T4SC AI Developer Execution Pack v1.0. The 42 answer-key records are tagged `legacy-ui-sample-v0` and must not be treated as the production examination. LP-A v0.1 is stored in a private database table in draft-not-approved state; its question bank is not exposed to applicants or the attempt API.
+The applicant screens still use shortened legacy sample questions. They are not the complete banks in the T4SC AI Developer Execution Pack v1.0, and the 42 old objective answer-key records are tagged `legacy-ui-sample-v0`; they must not be treated as official examination content. The private `assessment_bank_content` table now holds 26 source-backed records: CR-A v0.2, LP-A v0.1, all 12 department/experience routes and all 12 practical tasks. Every record remains `draft_not_approved`, is available only through the service role, and is not exposed by the applicant UI or attempt API. Superseding source corrections are included. These are complete drafts, not approved live examinations.
 
 Target weighting:
 - Common Reasoning: 12 raw marks → 15 weighted points
@@ -32,21 +32,21 @@ Target weighting:
 - Learning Potential: 20 raw marks → 20 weighted points
 - Practical Assessment: 40 raw marks → 40 weighted points
 
-The scoring core is versioned but draft-only; it cannot produce a live admission decision. Written/practical rubric-based automatic evaluation and calibration are outstanding.
+The scoring core implements the founder-approved 15/25/20/40 weighting and initial/final qualification gates in version `t4sc-admissions-2026-11-27-approved-baseline-v1`. The gates use full-precision weighted calculations, non-compensatory component floors and null/pending handling for missing scores. Live decisions remain disabled until every written/practical rubric evaluator is validated against independently reference-marked samples and the required experience-route calibration is approved. No confidence percentage has been invented.
 
 ## Assessment security and attempt lifecycle
 
-- The T4SC `t4sc-api` Edge Function is deployed as version 10. It fetches objective answer keys server-side. The answer-key table has RLS enabled; `anon` and `authenticated` have no select grant.
+- The T4SC `t4sc-api` Edge Function is deployed as version 12. It fetches objective answer keys server-side. The answer-key table has RLS enabled; `anon` and `authenticated` have no select grant.
 - Database uniqueness enforces one final submission per application/component. Idempotency keys support retries after a lost response.
 - Assessment screens for Common Reasoning, department and practical are connected to server-owned attempt start/read/save actions. The server stores only a SHA-256 hash of the client-generated attempt token.
 - The attempt hook persists the attempt envelope on the applicant's device, restores the latest local/server checkpoint, and saves changed responses every 10 seconds. It shows Saving/Saved/Not confirmed; final submission requires a confirmed latest checkpoint and is bound to the official attempt token.
 - No countdown/expiry is active because the approved time-limit settings are not configured. A complete technical/accessibility reopening workflow remains outstanding.
 - The feature-branch applicant access path now uses verified-email magic links and server-side ownership binding. Production Auth redirect configuration and further lifecycle tests remain outstanding. Rate limiting is not yet implemented.
-- Written/practical automatic evaluation, the full 15-day admissions state machine, alternative-department transfer, formal offers and the 48-hour response job are not complete.
+- A pure, deterministic admissions-lifecycle module now models initial progression, primary and alternative-route checks, technical/scoring-pending states, transfer acceptance, recommendation and the 48-hour offer calculation. It is unit-tested but is not yet connected to persistent admissions records, a server-side decision worker, an offer dashboard or a scheduled expiry job. No real application status or offer is changed by this helper.
 
 ## Current deployment state
 
-Supabase migrations 0001–0010 are applied. The Edge Function is live at version 10. The current branch passes 42 automated tests and a Next.js production build (TypeScript and all 24 routes). Vercel could not generate a fresh preview because its daily free-tier deployment API limit (100 deployments/day) was reached. The production site has not been redeployed from this branch.
+Supabase migrations 0001–0010 are applied. The Edge Function is live at version 12. On commit `cac5ad967bafe6716125bcaee70b191d13b4df76`, GitHub Actions passed 58/58 automated tests, TypeScript and the Next.js production build; all 24 static routes generated. The available Vercel preview failure was for stale commit `5d58a11` and reported a duplicated `email` property that is already absent from the current branch. A fresh preview could not be generated because the Vercel free-tier daily deployment API limit had been reached. The production site has not been redeployed from this branch.
 
 The GitHub repository is currently public and earlier commits contain browser-side answer-key copies. Treat them as exposed: current branch cleanup does not purge repository history.
 
@@ -68,15 +68,24 @@ The T4SC project is already created separately; do not reuse Axion credentials o
 - supabase/migrations/0008_applicant_auth_identity.sql
 - supabase/migrations/0009_assessment_bank_content.sql
 - supabase/migrations/0010_private_api_proxy_secret.sql
-- supabase/migrations/0009_assessment_bank_content.sql
-- supabase/migrations/0010_private_api_proxy_secret.sql
 
 Configure Vercel environment variables:
 - NEXT_PUBLIC_SUPABASE_URL
 - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (preferred) or NEXT_PUBLIC_SUPABASE_ANON_KEY
 - The T4SC Edge Function uses Supabase's server-managed service-role secret internally; do not copy it into client-side code
 
-Application, status and assessment API routes forward requests to the private-data Edge Function. Its deployable source is versioned at `supabase/functions/t4sc-api/index.ts`; the deployed function uses the project-managed service-role secret internally, and that key is never sent to the browser or stored in Vercel. The deployed `t4sc-api` function is version 12. A Sensitive `T4SC_API_PROXY_SECRET` is used server-to-server for verified application v1 and official attempt operations; only its SHA-256 digest is stored in `private_system_secrets`. A private LP-A draft bank is stored in `assessment_bank_content`; it is not published or attempt-enabled. Reviewer access must be implemented with authenticated roles and appropriate RLS policies before reviewers access applicant data. The status endpoint exposes only an applicant's own stage, never answers or reviewer notes.
+Application, status and assessment API routes forward requests to the private-data Edge Function. Its deployable source is versioned at `supabase/functions/t4sc-api/index.ts`; the deployed function uses the project-managed service-role secret internally, and that key is never sent to the browser or stored in Vercel. The deployed `t4sc-api` function is version 12. A Sensitive `T4SC_API_PROXY_SECRET` is used server-to-server for verified application v1 and official attempt operations; only its SHA-256 digest is stored in `private_system_secrets`. The 26 source-backed draft records (CR-A, LP-A, 12 department routes and 12 practical tasks) are stored in `assessment_bank_content` with `draft_not_approved`; none is published or attempt-enabled. Reviewer access must be implemented with authenticated roles and appropriate RLS policies before reviewers access applicant data. The status endpoint exposes only an applicant's own stage, never answers or reviewer notes.
+
+## Launch blockers and security handover
+
+- The pure lifecycle helper is tested, but persistent admission states, decision-event history, production scoring orchestration, alternative-transfer screens, formal-offer storage, applicant accept/decline actions and scheduled 48-hour expiry processing are not connected.
+- The automated written/practical evaluator is not configured or validated. The system must never convert scoring errors into zero marks or rejection.
+- The exact experience-route calibration, reference-marked pilot evidence and evaluator confidence/escalation behavior must be validated before live automated decisions.
+- The 15-day cycle and Day-13 offer issuance rules are implemented in the pure offer-window helper, but no cycle is configured and no production scheduler is active.
+- Supabase Auth Site URL and `/auth/callback` allow-list still require dashboard verification.
+- No reviewer roles/policies, post-process audit UI, verified correction/recalculation workflow, technical-incident/accessibility reopening route or endpoint rate limiting is live.
+- The connected GitHub repository is public and historic commits contain legacy client-side answer-key samples. Treat those historic samples as exposed; the available GitHub actions here do not provide repository-visibility or history-rewrite controls. Restrict repository access in GitHub and do not reuse those legacy keys in a live assessment.
+- Privacy/retention/deletion, safeguarding and age/guardian-consent, jurisdiction, hosting region/data-location and support-operating decisions remain launch gates.
 
 ## Founder decisions still to confirm before public recruitment promotion
 Geographic eligibility, participation mode, weekly minimum commitment, intake capacity, recruitment deadline/window, assessment language options, application fee, foundation-route support, reapplication period and privacy/retention details. The public copy deliberately does not invent these.
