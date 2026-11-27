@@ -1,3 +1,4 @@
+import "server-only";
 import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/env";
 import { shouldBlockT4SCAction, type T4SCApiAction } from "@/lib/t4sc-api-policy";
 
@@ -17,8 +18,9 @@ export async function callT4SCApi(
 
   const url = getSupabaseUrl();
   const key = getSupabasePublishableKey();
+  const proxySecret = process.env.T4SC_API_PROXY_SECRET;
 
-  if (!url || !key) {
+  if (!url || !key || !proxySecret || proxySecret.length < 32) {
     return {
       data: { error: "The T4SC application database is not connected yet." },
       status: 503,
@@ -32,7 +34,7 @@ export async function callT4SCApi(
         "Content-Type": "application/json",
         apikey: key,
         Authorization: `Bearer ${accessToken || key}`,
-        "x-t4sc-api-proxy-secret": process.env.T4SC_API_PROXY_SECRET || "",
+        "x-t4sc-api-proxy-secret": proxySecret,
       },
       body: JSON.stringify({ ...payload, action }),
       cache: "no-store",
