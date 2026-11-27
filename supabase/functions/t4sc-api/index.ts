@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { scoreObjectiveAnswers } from "../_shared/assessment-scoring.ts";
+import { scoreObjectiveAnswers } from "./_shared/assessment-scoring.ts";
 
 const departments = ["AI & Machine Learning","Game Development","Full Stack Development & System Architecture","Cybersecurity & Systems Security"];
 const levels = ["Beginner","Developing","Advanced"];
