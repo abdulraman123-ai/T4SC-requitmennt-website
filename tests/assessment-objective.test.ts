@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { scoreObjectiveAnswers } from "../supabase/functions/_shared/assessment-scoring.ts";
+import { scoreObjectiveAnswers } from "../supabase/functions/t4sc-api/_shared/assessment-scoring.ts";
 
 const keys = [
   { question_id: "q1", correct_value: "0" },
