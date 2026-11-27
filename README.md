@@ -15,7 +15,7 @@ A multi-page recruitment and admissions website for T4SC, based on the Axion Mar
 The form follows the T4SC Recruitment & Admissions System Specification:
 - Preferred name, email, country/region and optional alternative contact
 - Primary department, optional secondary interest and reason for department choice
-- Beginner / Developing / Advanced level, what the applicant has tried or built, optional tools/topics
+- Beginner / Developing / Experienced route, what the applicant has tried or built, optional tools/topics
 - Motivation and a technology problem the applicant would like to solve
 - Weekly availability, session/team availability, device and connectivity
 - Community-rules, honesty and privacy acknowledgements
