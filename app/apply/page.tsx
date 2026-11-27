@@ -125,7 +125,7 @@ export default function Apply() {
           const raw = localStorage.getItem("t4sc-application-draft-v3:" + normalizedEmail)
             || localStorage.getItem("t4sc-application-draft-v3");
           if (raw) saved = JSON.parse(raw) as Partial<Application>;
-          localStorage.removeItem("t4sc-application-draft-v3:" + verifiedEmail);
+          localStorage.removeItem("t4sc-application-draft-v3");
         } catch {
           saved = {};
         }
