@@ -1,12 +1,19 @@
 import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/env";
+import { shouldBlockT4SCAction, type T4SCApiAction } from "@/lib/t4sc-api-policy";
 
 type EdgeResult = { data: Record<string, unknown>; status: number };
 
 export async function callT4SCApi(
-  action: "application_submit" | "status_lookup" | "assessment_submit" | "attempt_start" | "attempt_read" | "attempt_save",
-  payload: Record<string, unknown>,
-  accessToken?: string
+  action: T4SCApiAction,
+  payload: Record<string, unknown>
 ): Promise<EdgeResult> {
+  if (shouldBlockT4SCAction(action, process.env)) {
+    return {
+      data: { error: "This preview is read-only. Applicant records and assessment attempts cannot be created or changed from a preview deployment." },
+      status: 403,
+    };
+  }
+
   const url = getSupabaseUrl();
   const key = getSupabasePublishableKey();
 
@@ -23,7 +30,7 @@ export async function callT4SCApi(
       headers: {
         "Content-Type": "application/json",
         apikey: key,
-        Authorization: `Bearer ${accessToken || key}`,
+        Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({ ...payload, action }),
       cache: "no-store",
