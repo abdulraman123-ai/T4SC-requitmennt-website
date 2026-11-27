@@ -244,7 +244,6 @@ export default function Apply() {
         email: verifiedEmail,
         applicationSchemaVersion: "t4sc-application-v1",
         preferredName: form.preferredName.trim(),
-        email: form.email.trim().toLowerCase(),
         country: form.country.trim(),
         region: form.region.trim(),
         experienceDescription: form.experienceDescription.trim(),
