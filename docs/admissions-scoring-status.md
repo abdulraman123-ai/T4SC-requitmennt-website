@@ -83,7 +83,19 @@ Migration `0007_application_schema_v1` adds:
 
 The database checks that any work-sample URL uses HTTPS and is no longer than 2,048 characters.
 
-### 7. Public admissions copy
+### 7. Applicant identity groundwork
+
+Migration `0008_applicant_auth_identity` adds a private applicant-auth identity link and related verification fields. The branch also includes the applicant-access UI and identity helper, but applicants are not yet fully provisioned with verified accounts or a complete recovery/session lifecycle. Existing reference-plus-email access remains supported during transition. Email syntax validation does not establish mailbox ownership.
+
+### 8. Private Learning Potential bank storage
+
+Migration `0009_assessment_bank_content` adds a private, versioned assessment-bank table. The live T4SC database contains the applicant-facing content for LP-A v0.1: the Nuru rules/explanation, worked example and ten two-mark questions (20 raw marks; 20–25 minutes). Its approval state is `draft_not_approved`.
+
+The table has RLS enabled, and anon/authenticated roles have no select grant. Only the service role can read it. Expected answers and reviewer rubrics were not seeded into the table. The bank is not exposed through the applicant UI or an API because the source pack explicitly marks LP-A v0.1 as a first complete draft for review, not approved. No LP-A attempt can be started and no LP-A result can affect a qualification decision.
+
+The source's exact qualifying thresholds and per-component minimums remain unapproved; the scoring system therefore continues to keep admissions decisions disabled.
+
+### 9. Public admissions copy
 
 The feature branch removes the superseded five-component weighting and draft pass bands from public pages. Admissions, Assessments and How It Works now describe the four components qualitatively, the automated qualification direction, the 15-calendar-day cycle and the full 48-hour offer response window without exposing internal pass thresholds or answer keys.
 
