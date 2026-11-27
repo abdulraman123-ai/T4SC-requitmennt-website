@@ -58,16 +58,28 @@ Migration `0004_assessment_submission_security` is applied to the T4SC Supabase 
 
 The preview front-end branch sends an idempotency key for general, department and practical final submissions. The server returns a receipt only after confirming the database insert.
 
-The live database was checked before migration: two application rows existed and there were zero assessment submissions. After migration and key seeding, there are still zero assessment submissions. No applicant row or answer was changed.
+### 4. Server-side attempt and checkpoint API
 
-### 4. Build and unit tests
+Migration `0005_assessment_attempts` is applied, and `t4sc-api` version 4 adds three private service operations:
+
+- `attempt_start`: verifies the application and prerequisite stage, records the single official attempt, and stores the server start timestamp. The client supplies an idempotency UUID and a random UUID bearer token; only its SHA-256 hash is stored.
+- `attempt_read`: verifies the application and bearer token, then returns the applicant's own attempt state and last confirmed checkpoint.
+- `attempt_save`: accepts a versioned JSON response checkpoint only for an active attempt. The server confirms the save with a timestamp and version. Stale/out-of-order versions cannot overwrite a newer checkpoint.
+
+Attempt responses are limited to 200 KB. The table has RLS enabled and no `anon` or `authenticated` grants. The server stores a start timestamp, but `expires_at` remains null because a timed deadline has not been configured.
+
+**Integration boundary:** the current applicant screening pages have not yet been connected to these new attempt operations. The server API and table are deployed, but the applicant-facing Start/Resume screen, token persistence, 10-second autosave loop, visible Saving/Saved/Not confirmed states, refresh recovery and final attempt-to-submission transition are still to be wired and tested. Do not tell applicants that autosave is active yet.
+
+The live database was checked before migrations: two application rows existed and there were zero assessment submissions. After the attempt table was added and its uniqueness constraint was tested with a rolled-back insert, there are still zero attempt rows and zero assessment submissions. No applicant row or answer was changed.
+
+### 5. Build and unit tests
 
 The Node built-in test suite contains 15 tests:
 
 - 10 tests for weighting, missing marks, score bounds and draft progression-gate behavior.
-- 5 tests for objective answer scoring, malformed/incomplete answers and missing-key failure.
+- 5 tests for objective answer scoring, malformed/incomplete answers and missing-key failure; 6 tests for attempt-token hashing, checkpoint versions, stale saves and payload size validation.
 
-Verified locally on Node 22.16.0: **15/15 tests passed** using `node --experimental-strip-types --test tests/admissions-scoring.test.ts tests/assessment-objective.test.ts`.
+Verified locally on Node 22.16.0: **21/21 tests passed** using `node --experimental-strip-types --test tests/admissions-scoring.test.ts tests/assessment-objective.test.ts`.
 
 The latest Vercel feature-branch preview is **READY**:
 https://t4sc-recruitment-website-95q7xl09g-abdulraman123-ais-projects.vercel.app
@@ -79,7 +91,7 @@ The preview build compiled, type-checked and generated the app routes. This is a
 1. **Incomplete assessment banks.** Replace the current 6-question Common Reasoning and three-question department mini-screens with the exact latest question-bank revisions in the execution pack, including LP-A and all 12 department routes. Do not represent the seeded legacy keys as the official assessment bank.
 2. **Historic repository exposure.** The GitHub repository is public. Earlier commits contain browser-side answer-key copies. Removing keys from the current branch does not erase historical Git objects or public clones. Treat these old question keys as exposed; rotate/replace the bank and make the repository private through GitHub account settings before relying on question secrecy. The available GitHub connector does not provide a repository-visibility update action.
 3. **Rubric-based automatic evaluation.** Build and validate the approved written/practical scoring evaluator. Persist criterion-level marks, evidence/reasons, confidence, evaluator version, rubric version and timestamp. A scoring error must remain pending/technical, never become zero or rejection.
-4. **Assessment attempt lifecycle.** The current implementation locks duplicate final submissions, but it does not yet implement server-created attempt start, server-authoritative timer/deadline, attempt resume, 10-second autosave, confirmed save checkpoints or controlled technical/accessibility reopening.
+4. **Applicant-facing assessment attempt lifecycle.** Server-side attempt creation, secure token validation, checkpoint reads and versioned saves now exist. The screening UI still needs Start/Resume controls, token persistence, 10-second autosave, visible confirmed-save states, refresh/reconnect recovery and final submission integration. No timed expiry is active because a final time policy is not configured. Controlled technical/accessibility reopening remains outstanding.
 5. **Authentication and rate limiting.** Assessment verification still uses application reference plus email. It is not the account-based, verified-email applicant experience specified by the pack. Add individual applicant accounts, email verification/recovery, server session checks, and proportionate endpoint rate limits before live use.
 6. **Full admissions state machine.** Only coarse progress labels are updated after submission. There is no automated initial qualifying checkpoint, primary/alternative department evaluation, transfer opportunity, final gate, 15-day operating cycle, offer issuance or 48-hour accept/decline workflow yet.
 7. **Reviewer permissions and audit.** The admin screen still confirms sign-in only. Reviewer roles, role-scoped RLS, append-only audit events and the verified correction/recalculation process are not implemented.
