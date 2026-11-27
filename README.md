@@ -38,10 +38,11 @@ The target admissions model requires a validated automated evaluator and version
 
 ## Assessment security implemented so far
 - The live `t4sc-api` Edge Function retrieves objective answer keys server-side. The answer-key table has RLS enabled and no `anon` or `authenticated` grants.
+- The Edge Function also exposes server-owned attempt start, read and versioned checkpoint-save actions. Attempt tokens are random UUID bearer values whose SHA-256 hashes are stored server-side. The current applicant screens are not yet wired to these attempt operations.
 - Final submissions are protected by a database unique index on application plus component/pathway.
 - The preview client sends idempotency keys and displays a receipt only after server confirmation.
 - Written/practical scoring is not yet implemented; these are stored pending rubric evaluation.
-- This is not yet a full attempt system: server-started attempts, authoritative timers, 10-second autosave, checkpoint recovery and technical/accessibility reopening are still outstanding.
+- The attempt table records a server start time and confirmed checkpoint state; no timed expiry is active. Applicant-facing Start/Resume UI, 10-second autosave, visible save states, refresh/reconnect recovery and attempt-to-submission integration are still outstanding. Do not represent the current screens as having autosave.
 - The GitHub repository is currently public and older commits contain answer-key copies. Treat those old keys as exposed; current-branch cleanup does not erase repository history.
 
 ## Design and accessibility
@@ -56,6 +57,7 @@ The T4SC project is already created separately; do not reuse Axion credentials o
 - supabase/migrations/0002_application_and_assessment_fields.sql
 - supabase/migrations/0003_service_role_grants_and_fk_indexes.sql
 - supabase/migrations/0004_assessment_submission_security.sql
+- supabase/migrations/0005_assessment_attempts.sql
 
 Configure Vercel environment variables:
 - NEXT_PUBLIC_SUPABASE_URL
