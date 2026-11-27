@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { scoreObjectiveAnswers } from "./_shared/assessment-scoring.ts";
 import { hashAttemptToken, isResponsePayload, isResponseVersion } from "./_shared/attempt-security.ts";
 import { validateApplicationV1 } from "./_shared/application-validation.ts";
+import { constantTimeEqual, sha256Hex } from "./_shared/proxy-security.ts";
 
 const departments = ["AI & Machine Learning","Game Development","Full Stack Development & System Architecture","Cybersecurity & Systems Security"];
 const levels = ["Beginner","Developing","Experienced","Advanced"];
@@ -71,6 +72,26 @@ Deno.serve(async (request: Request) => {
     }
 
     const body = await request.json();
+
+    const proxyProtectedAction =
+      (body.action === "application_submit" && body.applicationSchemaVersion === "t4sc-application-v1") ||
+      ["attempt_start", "attempt_read", "attempt_save"].includes(body.action) ||
+      (body.action === "assessment_submit" && (body.attemptId !== undefined || body.attemptToken !== undefined));
+
+    if (proxyProtectedAction) {
+      const suppliedProxySecret = request.headers.get("x-t4sc-api-proxy-secret") || "";
+      if (suppliedProxySecret.length < 32) {
+        return json({ error: "This request must use the authorised T4SC application server." }, 401);
+      }
+      const suppliedHash = await sha256Hex(suppliedProxySecret);
+      const { data: proxySecret, error: proxySecretError } = await db.from("private_system_secrets")
+        .select("secret_sha256")
+        .eq("secret_name", "next_api_proxy")
+        .maybeSingle();
+      if (proxySecretError || !proxySecret || !constantTimeEqual(suppliedHash, proxySecret.secret_sha256)) {
+        return json({ error: "This request must use the authorised T4SC application server." }, 401);
+      }
+    }
 
     if (body.action === "application_submit") {
       const newSchema = body.applicationSchemaVersion === "t4sc-application-v1";
