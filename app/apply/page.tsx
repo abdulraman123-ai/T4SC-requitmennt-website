@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Save } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 const departments = [
   "AI & Machine Learning",
@@ -102,29 +103,54 @@ export default function Apply() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState("");
+  const [verifiedEmail, setVerifiedEmail] = useState("");
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("t4sc-application-draft-v3");
-      if (raw) {
-        const saved = JSON.parse(raw) as Partial<Application>;
-        setForm({ ...initial, ...saved });
+    let active = true;
+    async function loadApplicantAndDraft() {
+      try {
+        const supabase = createClient();
+        const { data, error: userError } = await supabase.auth.getUser();
+        const user = data.user;
+        if (!active) return;
+        if (userError || !user?.email_confirmed_at || !user.email) {
+          router.replace("/applicant-access?next=%2Fapply");
+          return;
+        }
+        const normalizedEmail = user.email.trim().toLowerCase();
+        setVerifiedEmail(normalizedEmail);
+        let saved: Partial<Application> = {};
+        try {
+          const raw = localStorage.getItem("t4sc-application-draft-v3:" + normalizedEmail)
+            || localStorage.getItem("t4sc-application-draft-v3");
+          if (raw) saved = JSON.parse(raw) as Partial<Application>;
+          localStorage.removeItem("t4sc-application-draft-v3:" + verifiedEmail);
+        } catch {
+          saved = {};
+        }
+        if (!active) return;
+        setForm({ ...initial, ...saved, email: normalizedEmail });
+        setHydrated(true);
+      } catch {
+        if (active) router.replace("/applicant-access?next=%2Fapply");
+      } finally {
+        if (active) setAuthLoading(false);
       }
-    } catch {
-      // Ignore an unreadable local draft so the applicant can start again.
     }
-    setHydrated(true);
-  }, []);
+    void loadApplicantAndDraft();
+    return () => { active = false; };
+  }, [router]);
 
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem("t4sc-application-draft-v3", JSON.stringify(form));
+      localStorage.setItem("t4sc-application-draft-v3:" + verifiedEmail, JSON.stringify(form));
       setSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     } catch {
       setSavedAt("");
     }
-  }, [form, hydrated]);
+  }, [form, hydrated, verifiedEmail]);
 
   const set = (key: keyof Application, value: string | boolean) => {
     setForm((old) => ({ ...old, [key]: value }));
@@ -212,8 +238,10 @@ export default function Apply() {
     setError("");
     setSaving(true);
     try {
+      if (!verifiedEmail) throw new Error("Sign in with your verified applicant email before submitting.");
       const payload = {
         ...form,
+        email: verifiedEmail,
         applicationSchemaVersion: "t4sc-application-v1",
         preferredName: form.preferredName.trim(),
         email: form.email.trim().toLowerCase(),
@@ -246,6 +274,10 @@ export default function Apply() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (authLoading || !hydrated) {
+    return <main className="page-shell"><p className="small-note">Verifying your applicant account…</p></main>;
   }
 
   const textArea = (key: keyof Application, placeholder: string, rows = 4) => (
@@ -297,7 +329,7 @@ export default function Apply() {
             <p className="form-intro">We use these details to identify your application and contact you during the recruitment cycle. Do not enter a home address or identity-document details.</p>
             <div className="form-grid">
               <Field label="Name to use in T4SC" required><input value={form.preferredName} onChange={e => set("preferredName", e.target.value)} placeholder="What should we call you?"/></Field>
-              <Field label="Email address" required hint="Use an address you can access throughout the 15-day recruitment cycle."><input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="you@example.com"/></Field>
+              <Field label="Verified email address" required hint="This email belongs to the signed-in applicant account and cannot be changed inside the application."><input type="email" value={verifiedEmail} disabled readOnly autoComplete="email"/></Field>
               <Field label="Country" required><input value={form.country} onChange={e => set("country", e.target.value)} placeholder="Country you are based in"/></Field>
               <Field label="City / region" hint="Optional"><input value={form.region} onChange={e => set("region", e.target.value)} placeholder="City, state or region"/></Field>
             </div>
