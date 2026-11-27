@@ -11,39 +11,44 @@ A multi-page recruitment and admissions website for T4SC, based on the Axion Mar
 - Team sign-in page with Supabase email/password authentication and a protected reviewer workspace landing page
 - Applicant portal for private status lookup
 
-## Application questions
-The form follows the T4SC Recruitment & Admissions System Specification:
-- Preferred name, email, country/region and optional alternative contact
-- Primary department, optional secondary interest and reason for department choice
-- Beginner / Developing / Experienced route, what the applicant has tried or built, optional tools/topics
-- Motivation and a technology problem the applicant would like to solve
-- Weekly availability, session/team availability, device and connectivity
-- Community-rules, honesty and privacy acknowledgements
-- Optional accessibility/assessment adjustments
+## Application questions and schema v1
 
-No exact date of birth or age gate is used. Device/connectivity answers are for participation planning, not a measure of ability. Previous technical experience and a beginner portfolio are not compulsory.
+The feature branch contains the founder-approved application form:
+- Required email, name to use in T4SC, country, primary and different alternative department, experience route, motivation (50–150 words), learning/goals (30–120 words), weekly availability and separate declarations.
+- Optional city/region, prior experience/project description (up to 150 words), one HTTPS work-sample URL, and a private accessibility/support request (up to 500 characters).
+- Weekly availability: Less than 2 hours; 2–4 hours; 5–7 hours; 8 or more hours; Not sure yet.
+- New experience routes: Beginner, Developing, Experienced. Legacy Advanced records remain supported internally.
+- No mandatory portfolio or file upload. No full date of birth, home address or identity-document collection.
+
+The new wizard preserves a local draft and the server validates the same limits. Email syntax is checked, but email verification and applicant account provisioning are not yet implemented.
 
 ## Assessment flow — implementation status
-The public app currently contains a legacy Common Reasoning mini-screen, a three-question department mini-screen and a practical response form. These are implementation placeholders and are **not** the complete approved assessment banks in the T4SC AI Developer Execution Pack v1.0.
 
-The execution pack's target scoring structure is:
+The app still uses shortened legacy question screens. They are not the complete official assessment banks in the T4SC AI Developer Execution Pack v1.0. The 42 answer-key records are tagged `legacy-ui-sample-v0` and must not be treated as the production examination.
+
+Target weighting:
 - Common Reasoning: 12 raw marks → 15 weighted points
 - Department Assessment: 20 raw marks → 25 weighted points
 - Learning Potential: 20 raw marks → 20 weighted points
 - Practical Assessment: 40 raw marks → 40 weighted points
 
-The versioned scoring core and candidate progression gates are currently draft-only and do not issue admissions decisions. The live Edge Function scores the objective portion of the current legacy mini-screens against server-side keys; written and practical rubric scoring remains pending. Do not treat the 42 seeded `legacy-ui-sample-v0` keys as the official assessment bank.
+The scoring core is versioned but draft-only; it cannot produce a live admission decision. Written/practical rubric-based automatic evaluation and calibration are outstanding.
 
-The target admissions model requires a validated automated evaluator and versioned qualification rules. A technical/scoring failure must remain pending or require technical review, never become an invented zero or automatic rejection. Cybersecurity scenarios remain fictional or explicitly authorised only.
+## Assessment security and attempt lifecycle
 
-## Assessment security implemented so far
-- The live `t4sc-api` Edge Function retrieves objective answer keys server-side. The answer-key table has RLS enabled and no `anon` or `authenticated` grants.
-- The Edge Function also exposes server-owned attempt start, read and versioned checkpoint-save actions. Attempt tokens are random UUID bearer values whose SHA-256 hashes are stored server-side. The current applicant screens are not yet wired to these attempt operations.
-- Final submissions are protected by a database unique index on application plus component/pathway.
-- The preview client sends idempotency keys and displays a receipt only after server confirmation.
-- Written/practical scoring is not yet implemented; these are stored pending rubric evaluation.
-- The attempt table records a server start time and confirmed checkpoint state; no timed expiry is active. Applicant-facing Start/Resume UI, 10-second autosave, visible save states, refresh/reconnect recovery and attempt-to-submission integration are still outstanding. Do not represent the current screens as having autosave.
-- The GitHub repository is currently public and older commits contain answer-key copies. Treat those old keys as exposed; current-branch cleanup does not erase repository history.
+- The T4SC `t4sc-api` Edge Function is deployed as version 7. It fetches objective answer keys server-side. The answer-key table has RLS enabled; `anon` and `authenticated` have no select grant.
+- Database uniqueness enforces one final submission per application/component. Idempotency keys support retries after a lost response.
+- Assessment screens for Common Reasoning, department and practical are connected to server-owned attempt start/read/save actions. The server stores only a SHA-256 hash of the client-generated attempt token.
+- The attempt hook persists the attempt envelope on the applicant's device, restores the latest local/server checkpoint, and saves changed responses every 10 seconds. It shows Saving/Saved/Not confirmed; final submission requires a confirmed latest checkpoint and is bound to the official attempt token.
+- No countdown/expiry is active because the approved time-limit settings are not configured. A complete technical/accessibility reopening workflow remains outstanding.
+- The existing public portal still uses application reference plus email; verified-email accounts, recovery and rate limiting are outstanding.
+- Written/practical automatic evaluation, the full 15-day admissions state machine, alternative-department transfer, formal offers and the 48-hour response job are not complete.
+
+## Current deployment state
+
+Supabase migrations 0001–0007 are applied. The Edge Function is live at version 7. The Next.js changes remain on `feat/admissions-scoring-core-draft` and its preview; the production site has not been redeployed from this branch.
+
+The GitHub repository is currently public and earlier commits contain browser-side answer-key copies. Treat them as exposed: current branch cleanup does not purge repository history.
 
 ## Design and accessibility
 Responsive multi-page navigation, dark navy base with warm orange/yellow accents, animated ambient background, scroll reveal, floating/orbiting hero elements and reduced-motion support. Motion is CSS-led and lightweight; the site respects the user's reduced-motion preference.
