@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { scoreObjectiveAnswers } from "./_shared/assessment-scoring.ts";
+import { hashAttemptToken, isResponsePayload, isResponseVersion } from "./_shared/attempt-security.ts";
 
 const departments = ["AI & Machine Learning","Game Development","Full Stack Development & System Architecture","Cybersecurity & Systems Security"];
 const levels = ["Beginner","Developing","Advanced"];
@@ -64,6 +65,181 @@ Deno.serve(async (request: Request) => {
         .eq("email", body.email.trim().toLowerCase()).maybeSingle();
       if (error || !data) return json({ error: "We could not find an application matching those details." }, 404);
       return json({ application: data });
+    }
+
+
+    if (body.action === "attempt_start") {
+      if (typeof body.reference !== "string" || !validEmail(body.email) ||
+          !allowedPathways.includes(body.pathway) ||
+          !validUuid(body.idempotencyKey) || !validUuid(body.attemptToken)) {
+        return json({ error: "Assessment start details are incomplete." }, 400);
+      }
+
+      const { data: application, error: lookupError } = await db.from("applications")
+        .select("id,reference,department,assessment_level")
+        .eq("reference", body.reference.trim().toUpperCase())
+        .eq("email", body.email.trim().toLowerCase()).maybeSingle();
+      if (lookupError || !application) return json({ error: "We could not verify this application. Check your reference and email." }, 404);
+
+      const level = application.assessment_level;
+      const department = application.department;
+      if (!levels.includes(level) || !departments.includes(department)) return json({ error: "The application assessment route is not configured correctly." }, 409);
+      if (body.pathway === "department" && body.department !== department) {
+        return json({ error: "This assessment does not match the primary department on your application." }, 403);
+      }
+
+      const pathway = body.pathway === "department" ? "department: " + department : body.pathway;
+      if (body.pathway === "department" || body.pathway === "practical") {
+        const prerequisite = body.pathway === "department" ? "general" : "department: " + department;
+        const { data: previous, error } = await db.from("assessment_submissions").select("id")
+          .eq("application_id", application.id).eq("pathway", prerequisite).maybeSingle();
+        if (error || !previous) return json({ error: "Complete the previous assessment before starting this component." }, 409);
+      }
+
+      const tokenHash = await hashAttemptToken(body.attemptToken);
+      const { data: existing, error: existingError } = await db.from("assessment_attempts")
+        .select("id,pathway,level,status,idempotency_key,attempt_token_hash,response,response_version,started_at,expires_at,last_saved_at,submitted_at")
+        .eq("application_id", application.id).eq("pathway", pathway).maybeSingle();
+      if (existingError) return json({ error: "We could not verify the assessment attempt. Please retry." }, 503);
+      if (existing) {
+        if (existing.idempotency_key === body.idempotencyKey && existing.attempt_token_hash === tokenHash) {
+          return json({
+            attempt: {
+              id: existing.id, pathway: existing.pathway, level: existing.level, status: existing.status,
+              response: existing.response, responseVersion: existing.response_version,
+              startedAt: existing.started_at, expiresAt: existing.expires_at,
+              lastSavedAt: existing.last_saved_at, submittedAt: existing.submitted_at,
+            },
+            repeatedRequest: true,
+          }, 200);
+        }
+        return json({ error: "An official attempt already exists for this component. Resume it on the device where it was started, or contact T4SC support for a verified technical/accessibility issue." }, 409);
+      }
+
+      const now = new Date().toISOString();
+      const { data: attempt, error: insertError } = await db.from("assessment_attempts").insert({
+        application_id: application.id,
+        pathway,
+        level,
+        attempt_number: 1,
+        status: "active",
+        idempotency_key: body.idempotencyKey,
+        attempt_token_hash: tokenHash,
+        response: {},
+        response_version: 0,
+        started_at: now,
+        expires_at: null,
+      }).select("id,pathway,level,status,response,response_version,started_at,expires_at,last_saved_at,submitted_at").single();
+
+      if (insertError) {
+        if (insertError.code === "23505") {
+          const { data: raced } = await db.from("assessment_attempts")
+            .select("id,pathway,level,status,idempotency_key,attempt_token_hash,response,response_version,started_at,expires_at,last_saved_at,submitted_at")
+            .eq("application_id", application.id).eq("pathway", pathway).maybeSingle();
+          if (raced && raced.idempotency_key === body.idempotencyKey && raced.attempt_token_hash === tokenHash) {
+            return json({
+              attempt: {
+                id: raced.id, pathway: raced.pathway, level: raced.level, status: raced.status,
+                response: raced.response, responseVersion: raced.response_version,
+                startedAt: raced.started_at, expiresAt: raced.expires_at,
+                lastSavedAt: raced.last_saved_at, submittedAt: raced.submitted_at,
+              },
+              repeatedRequest: true,
+            }, 200);
+          }
+          return json({ error: "An official attempt already exists for this component." }, 409);
+        }
+        return json({ error: "We could not create your assessment attempt. No attempt was started; please retry." }, 503);
+      }
+
+      return json({
+        attempt: {
+          id: attempt.id, pathway: attempt.pathway, level: attempt.level, status: attempt.status,
+          response: attempt.response, responseVersion: attempt.response_version,
+          startedAt: attempt.started_at, expiresAt: attempt.expires_at,
+          lastSavedAt: attempt.last_saved_at, submittedAt: attempt.submitted_at,
+        },
+      }, 201);
+    }
+
+    if (body.action === "attempt_read" || body.action === "attempt_save") {
+      if (typeof body.reference !== "string" || !validEmail(body.email) ||
+          !validUuid(body.attemptId) || !validUuid(body.attemptToken)) {
+        return json({ error: "Assessment attempt credentials are incomplete." }, 400);
+      }
+
+      const { data: application, error: lookupError } = await db.from("applications").select("id")
+        .eq("reference", body.reference.trim().toUpperCase())
+        .eq("email", body.email.trim().toLowerCase()).maybeSingle();
+      if (lookupError || !application) return json({ error: "We could not verify this application. Check your reference and email." }, 404);
+
+      const tokenHash = await hashAttemptToken(body.attemptToken);
+      const { data: attempt, error: attemptError } = await db.from("assessment_attempts")
+        .select("id,pathway,level,status,attempt_number,attempt_token_hash,response,response_version,started_at,expires_at,last_saved_at,submitted_at")
+        .eq("id", body.attemptId).eq("application_id", application.id).maybeSingle();
+      if (attemptError || !attempt || attempt.attempt_token_hash !== tokenHash) {
+        return json({ error: "We could not verify this assessment attempt. Return to the applicant portal or contact T4SC support." }, 403);
+      }
+
+      if (body.action === "attempt_read") {
+        return json({
+          attempt: {
+            id: attempt.id, pathway: attempt.pathway, level: attempt.level, status: attempt.status,
+            attemptNumber: attempt.attempt_number, response: attempt.response,
+            responseVersion: attempt.response_version, startedAt: attempt.started_at,
+            expiresAt: attempt.expires_at, lastSavedAt: attempt.last_saved_at,
+            submittedAt: attempt.submitted_at,
+          },
+        });
+      }
+
+      if (attempt.status !== "active") {
+        return json({ error: "This assessment attempt is not active and cannot be changed." }, 409);
+      }
+      if (!isResponseVersion(body.responseVersion) || !isResponsePayload(body.response)) {
+        return json({ error: "The response checkpoint is invalid or too large. Your previous confirmed save is unchanged." }, 400);
+      }
+      if (body.responseVersion <= attempt.response_version) {
+        return json({
+          saved: true, stale: true, responseVersion: attempt.response_version,
+          lastSavedAt: attempt.last_saved_at, status: attempt.status,
+        }, 200);
+      }
+
+      const savedAt = new Date().toISOString();
+      const { data: saved, error: saveError } = await db.from("assessment_attempts")
+        .update({
+          response: body.response,
+          response_version: body.responseVersion,
+          last_saved_at: savedAt,
+          updated_at: savedAt,
+        })
+        .eq("id", attempt.id)
+        .eq("application_id", application.id)
+        .eq("attempt_token_hash", tokenHash)
+        .eq("status", "active")
+        .lt("response_version", body.responseVersion)
+        .select("response_version,last_saved_at,status")
+        .maybeSingle();
+
+      if (saveError) return json({ error: "We could not confirm that save. Your previous confirmed checkpoint remains available; please retry." }, 503);
+      if (!saved) {
+        const { data: latest, error: latestError } = await db.from("assessment_attempts")
+          .select("response_version,last_saved_at,status")
+          .eq("id", attempt.id).eq("application_id", application.id).maybeSingle();
+        if (latestError || !latest || latest.status !== "active") {
+          return json({ error: "The assessment state changed before this save could be confirmed. Reload the attempt state." }, 409);
+        }
+        if (latest.response_version >= body.responseVersion) {
+          return json({ saved: true, stale: true, responseVersion: latest.response_version, lastSavedAt: latest.last_saved_at, status: latest.status }, 200);
+        }
+        return json({ error: "The save was not confirmed. Please retry." }, 503);
+      }
+
+      return json({
+        saved: true, stale: false, responseVersion: saved.response_version,
+        lastSavedAt: saved.last_saved_at, status: saved.status,
+      }, 200);
     }
 
     if (body.action === "assessment_submit") {
