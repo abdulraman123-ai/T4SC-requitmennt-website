@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { ArrowUpRight, Search } from "lucide-react";
 
 const labels: Record<string, string> = {
@@ -23,6 +25,9 @@ const labels: Record<string, string> = {
 const communityEligibleStatuses = ["admitted", "onboarding", "active_member"];
 
 export default function Portal() {
+  const router = useRouter();
+  const [verifiedEmail, setVerifiedEmail] = useState("");
+  const [authLoading, setAuthLoading] = useState(true);
   const [reference, setReference] = useState("");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<any>(null);
@@ -31,8 +36,36 @@ export default function Portal() {
   const [inviteUrl, setInviteUrl] = useState("");
   const [inviteMessage, setInviteMessage] = useState("");
 
+  useEffect(() => {
+    let active = true;
+    async function loadVerifiedEmail() {
+      try {
+        const supabase = createClient();
+        const { data, error: userError } = await supabase.auth.getUser();
+        if (!active) return;
+        if (userError || !data.user?.email_confirmed_at || !data.user.email) {
+          router.replace("/applicant-access?next=%2Fportal");
+          return;
+        }
+        const normalized = data.user.email.trim().toLowerCase();
+        setVerifiedEmail(normalized);
+        setEmail(normalized);
+      } catch {
+        if (active) router.replace("/applicant-access?next=%2Fportal");
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    }
+    void loadVerifiedEmail();
+    return () => { active = false; };
+  }, [router]);
+
   async function check(e: React.FormEvent) {
     e.preventDefault();
+    if (!verifiedEmail) {
+      setError("Sign in with your verified applicant email to view your status.");
+      return;
+    }
     setBusy(true);
     setError("");
     setStatus(null);
@@ -43,7 +76,7 @@ export default function Portal() {
       const response = await fetch("/api/applications/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reference, email }),
+        body: JSON.stringify({ reference, email: verifiedEmail }),
         cache: "no-store",
       });
       const data = await response.json();
@@ -77,6 +110,8 @@ export default function Portal() {
     }
   }
 
+  if (authLoading) return <main className="page-shell"><p className="small-note">Verifying your applicant account…</p></main>;
+
   return (
     <main className="page-shell">
       <section className="page-hero" data-reveal>
@@ -92,7 +127,7 @@ export default function Portal() {
         </label>
         <label className="form-field">
           <span>Application email <i>Required</i></span>
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="The email used in your application" required />
+          <input type="email" value={verifiedEmail} disabled readOnly required />
         </label>
         <button className="button" disabled={busy}>
           {busy ? "Checking…" : "Check status"} <Search size={15} />
