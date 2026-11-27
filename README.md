@@ -46,7 +46,7 @@ The scoring core implements the founder-approved 15/25/20/40 weighting and initi
 
 ## Current deployment state
 
-Supabase migrations 0001–0016 are applied. The Edge Function is live at version 13. On commit `7c4608e54cba688c7b4e2bc0c32d004efe176eb1`, GitHub Actions passed 58/58 automated tests, TypeScript and the Next.js production build; all 24 static routes generated. The available Vercel preview failure was for stale commit `5d58a11` and reported a duplicated `email` property that is already absent from the current branch. A fresh preview could not be generated because the Vercel free-tier daily deployment API limit had been reached. The production site has not been redeployed from this branch.
+Supabase migrations 0001–0017 are applied. The Edge Function is live at version 13. On commit `7c4608e54cba688c7b4e2bc0c32d004efe176eb1`, GitHub Actions passed 58/58 automated tests, TypeScript and the Next.js production build; all 24 static routes generated. The available Vercel preview failure was for stale commit `5d58a11` and reported a duplicated `email` property that is already absent from the current branch. A fresh preview could not be generated because the Vercel free-tier daily deployment API limit had been reached. The production site has not been redeployed from this branch.
 
 The GitHub repository is currently public and earlier commits contain browser-side answer-key copies. Treat them as exposed: current branch cleanup does not purge repository history.
 
@@ -74,6 +74,7 @@ The T4SC project is already created separately; do not reuse Axion credentials o
 - supabase/migrations/0014_admissions_ledger_fk_indexes.sql
 - supabase/migrations/0015_admission_routine_invoker_hardening.sql
 - supabase/migrations/0016_schedule_admission_offer_expiry.sql
+- supabase/migrations/0017_idempotent_admission_offer_response.sql
 
 Configure Vercel environment variables:
 - NEXT_PUBLIC_SUPABASE_URL
