@@ -17,6 +17,32 @@ function validUuid(value: unknown): value is string {
   return typeof value === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
+async function ensureApplicationOwner(
+  db: ReturnType<typeof createClient>,
+  application: { id: string; auth_user_id?: string | null },
+  user: { id: string; email?: string | null },
+  requestedEmail: string,
+): Promise<boolean> {
+  const normalizedEmail = requestedEmail.trim().toLowerCase();
+  if (!user.email || user.email.trim().toLowerCase() !== normalizedEmail) return false;
+  if (application.auth_user_id) return application.auth_user_id === user.id;
+
+  const { data: claimed, error: claimError } = await db.from("applications")
+    .update({ auth_user_id: user.id })
+    .eq("id", application.id)
+    .is("auth_user_id", null)
+    .select("id")
+    .maybeSingle();
+  if (claimError) return false;
+  if (claimed) return true;
+
+  const { data: current, error: currentError } = await db.from("applications")
+    .select("auth_user_id")
+    .eq("id", application.id)
+    .maybeSingle();
+  return !currentError && current?.auth_user_id === user.id;
+}
+
 function receipt(data: { id: string; submitted_at: string; scoring_status: string }, pathway: string) {
   return {
     ok: true,
@@ -34,6 +60,16 @@ Deno.serve(async (request: Request) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceRoleKey) return json({ error: "The private T4SC database connection is not ready." }, 503);
     const db = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const authorization = request.headers.get("authorization") || "";
+    const bearerToken = authorization.match(/^Bearer\\s+(.+)$/i)?.[1] || "";
+    let authenticatedApplicant: { id: string; email?: string | null; email_confirmed_at?: string | null } | null = null;
+    if (bearerToken && bearerToken !== serviceRoleKey) {
+      const { data: authData, error: authError } = await db.auth.getUser(bearerToken);
+      if (!authError && authData.user?.email_confirmed_at) {
+        authenticatedApplicant = authData.user;
+      }
+    }
+
     const body = await request.json();
 
     if (body.action === "application_submit") {
@@ -46,8 +82,13 @@ Deno.serve(async (request: Request) => {
         const validation = validateApplicationV1(body);
         if (!validation.ok) return json({ error: validation.error }, 400);
         const app = validation.value;
+        if (!authenticatedApplicant || !authenticatedApplicant.email ||
+            authenticatedApplicant.email.trim().toLowerCase() !== app.email) {
+          return json({ error: "Sign in with the verified email address used in this application." }, 401);
+        }
 
         const { data, error } = await db.from("applications").insert({
+          auth_user_id: authenticatedApplicant.id,
           full_name: app.preferredName,
           preferred_name: app.preferredName,
           email: app.email,
@@ -110,11 +151,19 @@ Deno.serve(async (request: Request) => {
 
     if (body.action === "status_lookup") {
       if (typeof body.reference !== "string" || !validEmail(body.email)) return json({ error: "Enter your application reference and a valid email address." }, 400);
-      const { data, error } = await db.from("applications").select("reference,preferred_name,status,created_at,updated_at")
+      const { data, error } = await db.from("applications").select("id,auth_user_id,reference,preferred_name,status,created_at,updated_at")
         .eq("reference", body.reference.trim().toUpperCase())
         .eq("email", body.email.trim().toLowerCase()).maybeSingle();
       if (error || !data) return json({ error: "We could not find an application matching those details." }, 404);
-      return json({ application: data });
+      if (data.auth_user_id || authenticatedApplicant) {
+        if (!authenticatedApplicant || !(await ensureApplicationOwner(db, data, authenticatedApplicant, body.email))) {
+          return json({ error: "We could not find an application matching those details." }, 404);
+        }
+      }
+      return json({ application: {
+        reference: data.reference, preferred_name: data.preferred_name, status: data.status,
+        created_at: data.created_at, updated_at: data.updated_at,
+      } });
     }
 
 
@@ -126,10 +175,13 @@ Deno.serve(async (request: Request) => {
       }
 
       const { data: application, error: lookupError } = await db.from("applications")
-        .select("id,reference,department,assessment_level")
+        .select("id,reference,department,assessment_level,auth_user_id")
         .eq("reference", body.reference.trim().toUpperCase())
         .eq("email", body.email.trim().toLowerCase()).maybeSingle();
       if (lookupError || !application) return json({ error: "We could not verify this application. Check your reference and email." }, 404);
+      if (!authenticatedApplicant || !(await ensureApplicationOwner(db, application, authenticatedApplicant, body.email))) {
+        return json({ error: "Sign in with the verified account linked to this application." }, 403);
+      }
 
       const level = application.assessment_level;
       const department = application.department;
@@ -223,10 +275,13 @@ Deno.serve(async (request: Request) => {
         return json({ error: "Assessment attempt credentials are incomplete." }, 400);
       }
 
-      const { data: application, error: lookupError } = await db.from("applications").select("id")
+      const { data: application, error: lookupError } = await db.from("applications").select("id,auth_user_id")
         .eq("reference", body.reference.trim().toUpperCase())
         .eq("email", body.email.trim().toLowerCase()).maybeSingle();
       if (lookupError || !application) return json({ error: "We could not verify this application. Check your reference and email." }, 404);
+      if (!authenticatedApplicant || !(await ensureApplicationOwner(db, application, authenticatedApplicant, body.email))) {
+        return json({ error: "Sign in with the verified account linked to this application." }, 403);
+      }
 
       const tokenHash = await hashAttemptToken(body.attemptToken);
       const { data: attempt, error: attemptError } = await db.from("assessment_attempts")
@@ -318,10 +373,15 @@ Deno.serve(async (request: Request) => {
       }
 
       const { data: application, error: lookupError } = await db.from("applications")
-        .select("id,reference,department,assessment_level")
+        .select("id,reference,department,assessment_level,auth_user_id")
         .eq("reference", body.reference.trim().toUpperCase())
         .eq("email", body.email.trim().toLowerCase()).maybeSingle();
       if (lookupError || !application) return json({ error: "We could not verify this application. Check your reference and email." }, 404);
+      if (body.attemptId !== undefined || body.attemptToken !== undefined) {
+        if (!authenticatedApplicant || !(await ensureApplicationOwner(db, application, authenticatedApplicant, body.email))) {
+          return json({ error: "Sign in with the verified account linked to this application." }, 403);
+        }
+      }
 
       const level = application.assessment_level;
       const department = application.department;
