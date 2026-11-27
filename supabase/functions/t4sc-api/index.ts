@@ -89,6 +89,11 @@ Deno.serve(async (request: Request) => {
       }
 
       const pathway = body.pathway === "department" ? "department: " + department : body.pathway;
+      const { data: finalSubmission, error: submissionLookupError } = await db.from("assessment_submissions")
+        .select("id").eq("application_id", application.id).eq("pathway", pathway).maybeSingle();
+      if (submissionLookupError) return json({ error: "We could not verify whether this assessment was already submitted." }, 503);
+      if (finalSubmission) return json({ error: "This assessment has already been submitted. Its official attempt is locked." }, 409);
+
       if (body.pathway === "department" || body.pathway === "practical") {
         const prerequisite = body.pathway === "department" ? "general" : "department: " + department;
         const { data: previous, error } = await db.from("assessment_submissions").select("id")
@@ -195,6 +200,16 @@ Deno.serve(async (request: Request) => {
 
       if (attempt.status !== "active") {
         return json({ error: "This assessment attempt is not active and cannot be changed." }, 409);
+      }
+      const { data: existingFinalSubmission, error: finalSubmissionError } = await db.from("assessment_submissions")
+        .select("id").eq("application_id", application.id).eq("pathway", attempt.pathway).maybeSingle();
+      if (finalSubmissionError) return json({ error: "We could not verify the final submission state. Retry after refreshing the attempt." }, 503);
+      if (existingFinalSubmission) {
+        const submittedAt = new Date().toISOString();
+        await db.from("assessment_attempts").update({
+          status: "submitted", submitted_at: submittedAt, updated_at: submittedAt,
+        }).eq("id", attempt.id).eq("status", "active");
+        return json({ error: "This assessment has already been submitted. The official attempt is locked." }, 409);
       }
       if (!isResponseVersion(body.responseVersion) || !isResponsePayload(body.response)) {
         return json({ error: "The response checkpoint is invalid or too large. Your previous confirmed save is unchanged." }, 400);
@@ -364,6 +379,12 @@ Deno.serve(async (request: Request) => {
             .select("id,submitted_at,scoring_status,submission_idempotency_key")
             .eq("application_id", application.id).eq("pathway", pathway).maybeSingle();
           if (raced && idempotencyKey && raced.submission_idempotency_key === idempotencyKey) {
+            if (activeAttempt && activeAttempt.status === "active") {
+              const submittedAt = new Date().toISOString();
+              await db.from("assessment_attempts")
+                .update({ status: "submitted", submitted_at: submittedAt, updated_at: submittedAt })
+                .eq("id", activeAttempt.id).eq("status", "active");
+            }
             return json({ ...receipt(raced, pathway), repeatedRequest: true }, 200);
           }
           return json({ error: "This assessment has already been submitted and the official attempt is locked." }, 409);
