@@ -4,7 +4,7 @@ import { scoreObjectiveAnswers } from "./_shared/assessment-scoring.ts";
 import { hashAttemptToken, isResponsePayload, isResponseVersion } from "./_shared/attempt-security.ts";
 
 const departments = ["AI & Machine Learning","Game Development","Full Stack Development & System Architecture","Cybersecurity & Systems Security"];
-const levels = ["Beginner","Developing","Advanced"];
+const levels = ["Beginner","Developing","Experienced","Advanced"];
 const allowedPathways = ["general","department","practical"];
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
@@ -339,7 +339,7 @@ Deno.serve(async (request: Request) => {
       let scoringVersion = "t4sc-rubric-evaluator-not-configured";
 
       if (body.pathway === "general" || body.pathway === "department") {
-        const keyLevel = body.pathway === "general" ? "shared" : level;
+        const keyLevel = body.pathway === "general" ? "shared" : (level === "Advanced" ? "Experienced" : level);
         const { data: answerKeys, error: keysError } = await db.from("assessment_answer_keys")
           .select("question_id,correct_value")
           .eq("pathway", body.pathway).eq("department", body.pathway === "general" ? "*" : department).eq("level", keyLevel)
