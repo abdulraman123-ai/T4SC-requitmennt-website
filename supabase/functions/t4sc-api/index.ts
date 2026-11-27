@@ -61,7 +61,7 @@ Deno.serve(async (request: Request) => {
     if (!supabaseUrl || !serviceRoleKey) return json({ error: "The private T4SC database connection is not ready." }, 503);
     const db = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
     const authorization = request.headers.get("authorization") || "";
-    const bearerToken = authorization.match(/^Bearer\\s+(.+)$/i)?.[1] || "";
+    const bearerToken = authorization.match(/^Bearer\s+(.+)$/i)?.[1] || "";
     let authenticatedApplicant: { id: string; email?: string | null; email_confirmed_at?: string | null } | null = null;
     if (bearerToken && bearerToken !== serviceRoleKey) {
       const { data: authData, error: authError } = await db.auth.getUser(bearerToken);
