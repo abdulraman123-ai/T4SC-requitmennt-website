@@ -111,15 +111,18 @@ The server API helper blocks application creation, attempt start/save and final 
 
 - T4SC Supabase project: `qhslwfasplgigamujxvj`.
 - Applied migrations: `0001_t4sc_recruitment_schema`, `0002_application_and_assessment_fields`, `0003_service_role_grants_and_fk_indexes`, `0004_assessment_submission_security`, `0005_assessment_attempts`, `0006_experienced_route_name`, `0007_application_schema_v1`, `0008_applicant_auth_identity`, `0009_assessment_bank_content`.
-- Deployed Edge Function: `t4sc-api`, version **8**, ACTIVE.
+- Deployed Edge Function: `t4sc-api`, version **10**, ACTIVE.
+- `private_system_secrets`: one SHA-256 digest for the Next.js-to-Edge-Function proxy credential. RLS is enabled; anon/authenticated have no table grants. The raw credential is a Sensitive Vercel environment variable only.
 - `assessment_answer_keys`: 42 legacy sample rows.
 - Existing live applications: two, both Beginner at the last verification. The application rows have not been modified by this implementation slice.
 - `assessment_submissions`: zero rows at the last verification.
 - `assessment_attempts`: zero rows at the last verification. No real applicant attempt was created for testing.
 - Vercel Preview environment is configured read-only; application and assessment mutation requests are rejected before reaching Supabase. Production environment is not set to read-only.
 - Answer-key and attempt tables: RLS enabled; `anon` and `authenticated` cannot select; `service_role` can.
-- GitHub Actions on commit `7f4a7ded0b68b2f75f6a7275f8834016f357f524`: **40/40 tests passed**; the `next build` step compiled, passed TypeScript and generated all 24 routes.
-- The Vercel Preview environment variables are set to read-only. A fresh Vercel preview could not be generated because the Vercel API hit its daily free-tier deployment cap (100 deployments/day). The previous Vercel attempt at commit `5d58a11c058f971c8e23e619f6b47efb75a699f0` failed on a duplicate `email` property; that defect has been fixed in later commits and the current GitHub Actions build passes. Do not treat the earlier preview URL as the current branch build.
+- GitHub Actions on current head `81b4500bca94df36c1cdd344a190a99f28511fb5`: **42/42 tests passed**; `next build` compiled, TypeScript passed and all 24 routes were generated.
+- The CI workflow includes a build-only placeholder Supabase URL/publishable key and read-only preview flags; it never uses production applicant data.
+- Vercel Preview has read-only environment flags and the API helper blocks applicant/assessment writes before Supabase.
+- A fresh Vercel preview could not be generated because Vercel returned `402 payment_required` after the free-tier deployment API cap of 100 deployments/day. The previous failed build at commit `5d58a11c058f971c8e23e619f6b47efb75a699f0` had a duplicate `email` property; that was fixed, and the current head passed the independent GitHub Actions production build. There is no current preview URL for the latest commit. The production site remains unchanged.
 - The Next.js changes remain on the feature branch and have not been merged into `main` or deployed to the production website. Supabase migrations and Edge Function updates are already on the live T4SC backend.
 
 ### 8. Verified applicant accounts and ownership binding
@@ -133,6 +136,17 @@ The application and portal forms use the signed-in verified email rather than le
 **Supabase dashboard configuration still required:** set the Auth Site URL to `https://t4sc-recruitment-website.vercel.app` and add `https://t4sc-recruitment-website.vercel.app/auth/callback` to the allowed redirect URLs. This Auth setting could not be updated through the connected Supabase controls. Do not tell applicants that magic-link access works on production until this redirect configuration is confirmed.
 
 The previous production website still uses its older public form and reference/email status route until this feature branch is merged. The deployed Edge Function retains compatibility for legacy application submissions and unclaimed legacy status lookups; the new v1/attempt flow is identity-bound.
+
+### 11. Private API proxy credential
+
+Migration `0010_private_api_proxy_secret` adds `public.private_system_secrets`. The database holds only a SHA-256 digest for the `next_api_proxy` credential. RLS is enabled; browser roles have no grants. The raw 256-bit credential is stored as a Sensitive Vercel environment variable named `T4SC_API_PROXY_SECRET` for Production, Preview and Development, and is used only by the Next.js server API helper.
+
+The Next.js helper sends the credential in `x-t4sc-api-proxy-secret`. The Edge Function hashes the supplied value and compares it with the stored digest before it accepts:
+- schema-v1 application creation;
+- official assessment attempt start/read/save;
+- final assessment submission bound to an official attempt.
+
+Legacy API compatibility remains for the existing production form/status path until the new branch is merged. The proxy secret is not stored in source control or sent to browser components. Vercel Preview write blocking remains an independent guard, so a preview request is rejected before it reaches Supabase.
 
 ## Remaining launch blockers
 
