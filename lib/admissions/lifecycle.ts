@@ -3,7 +3,7 @@ import {
   evaluateInitialGate,
   type AdmissionsComponent,
   type RawAdmissionsScores,
-} from "@/lib/admissions/scoring";
+} from "./scoring.ts";
 
 export type ComponentProgress =
   | "not_started"
