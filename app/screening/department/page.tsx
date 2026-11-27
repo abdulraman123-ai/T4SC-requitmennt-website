@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";import {useEffect,useState} from "react";import {useRouter} from "next/navigation";import {ArrowRight,Clock3} from "lucide-react";
-type Q={q:string;options:string[];answer:number};type Route={summary:string;questions:Q[];practical:string};
+type Q={q:string;options:string[]};type Route={summary:string;questions:Q[];practical:string};
 const bank:Record<string,Record<string,Route>>={
 "AI & Machine Learning":{
 Beginner:{summary:"Patterns, Python/pseudocode reading and simple data reasoning.",questions:[{q:"A list contains [2, 4, 6, 8]. What number would naturally come next in this pattern?",options:["9","10","11","12"]},{q:"A dataset contains examples labelled “spam” and “not spam”. What does the label tell a learning system?",options:["The expected category for that example","The computer's screen size","The file's colour","The internet speed"]},{q:"Why should examples include different real situations?",options:["So the model can learn a more representative pattern","So every row is identical","So evaluation is unnecessary","So the model can skip training"]}],practical:"A small community wants to sort incoming messages into “question”, “announcement” or “other”. Describe a simple rule-based or learning-based approach. Give three example messages and how you would label them."},
