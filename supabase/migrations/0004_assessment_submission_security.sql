@@ -22,8 +22,8 @@ alter table public.assessment_submissions
         and objective_score >= 0 and objective_max > 0 and objective_score <= objective_max)
   );
 
--- No assessment submissions currently exist; this protects future rows without
--- deleting or rewriting applicant data.
+-- No assessment submissions currently exist, so these indexes protect future
+-- writes without deleting or rewriting applicant data.
 create unique index if not exists assessment_submissions_one_per_component_idx
   on public.assessment_submissions(application_id, pathway);
 create unique index if not exists assessment_submissions_idempotency_idx
@@ -32,12 +32,18 @@ create unique index if not exists assessment_submissions_idempotency_idx
 
 create table if not exists public.assessment_answer_keys (
   pathway text not null check (pathway in ('general','department')),
+  department text not null check (department in ('*','AI & Machine Learning','Game Development','Full Stack Development & System Architecture','Cybersecurity & Systems Security')),
   level text not null check (level in ('shared','Beginner','Developing','Advanced')),
   question_id text not null,
   correct_value text not null check (correct_value in ('0','1','2','3')),
   key_version text not null,
   created_at timestamptz not null default now(),
-  primary key (pathway, level, question_id)
+  primary key (pathway, department, level, question_id),
+  check (
+    (pathway = 'general' and department = '*' and level = 'shared')
+    or
+    (pathway = 'department' and department <> '*' and level in ('Beginner','Developing','Advanced'))
+  )
 );
 alter table public.assessment_answer_keys enable row level security;
 revoke all on public.assessment_answer_keys from anon, authenticated;
