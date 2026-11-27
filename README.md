@@ -46,7 +46,7 @@ The scoring core implements the founder-approved 15/25/20/40 weighting and initi
 
 ## Current deployment state
 
-Supabase migrations 0001–0013 are applied. The Edge Function is live at version 13. On commit `7c4608e54cba688c7b4e2bc0c32d004efe176eb1`, GitHub Actions passed 58/58 automated tests, TypeScript and the Next.js production build; all 24 static routes generated. The available Vercel preview failure was for stale commit `5d58a11` and reported a duplicated `email` property that is already absent from the current branch. A fresh preview could not be generated because the Vercel free-tier daily deployment API limit had been reached. The production site has not been redeployed from this branch.
+Supabase migrations 0001–0016 are applied. The Edge Function is live at version 13. On commit `7c4608e54cba688c7b4e2bc0c32d004efe176eb1`, GitHub Actions passed 58/58 automated tests, TypeScript and the Next.js production build; all 24 static routes generated. The available Vercel preview failure was for stale commit `5d58a11` and reported a duplicated `email` property that is already absent from the current branch. A fresh preview could not be generated because the Vercel free-tier daily deployment API limit had been reached. The production site has not been redeployed from this branch.
 
 The GitHub repository is currently public and earlier commits contain browser-side answer-key copies. Treat them as exposed: current branch cleanup does not purge repository history.
 
@@ -71,6 +71,9 @@ The T4SC project is already created separately; do not reuse Axion credentials o
 - supabase/migrations/0011_admissions_runtime_ledger.sql
 - supabase/migrations/0012_admission_offer_hardening.sql
 - supabase/migrations/0013_offer_acceptance_status_bridge.sql
+- supabase/migrations/0014_admissions_ledger_fk_indexes.sql
+- supabase/migrations/0015_admission_routine_invoker_hardening.sql
+- supabase/migrations/0016_schedule_admission_offer_expiry.sql
 
 Configure Vercel environment variables:
 - NEXT_PUBLIC_SUPABASE_URL
@@ -87,6 +90,8 @@ Application, status and assessment API routes forward requests to the private-da
 - The 15-day cycle and Day-13 offer issuance rules are implemented in the pure offer-window helper, but no cycle is configured and no production scheduler is active.
 - Supabase Auth Site URL and `/auth/callback` allow-list still require dashboard verification.
 - No reviewer roles/policies, post-process audit UI, verified correction/recalculation workflow, technical-incident/accessibility reopening route or endpoint rate limiting is live. The new append-only decision-event schema is present, but no authority accounts are assigned and no correction console is connected.
+- A real 15-day cycle has not been configured; the expiry job is active but has no applicant offers to process. The job has been tested and its first run succeeded.
+- The three unindexed admissions-ledger foreign-key findings were fixed in migration 0014. The remaining performance advisor messages are informational unused-index notices on tables with no production workload.
 - The connected GitHub repository is public and historic commits contain legacy client-side answer-key samples. Treat those historic samples as exposed; the available GitHub actions here do not provide repository-visibility or history-rewrite controls. Restrict repository access in GitHub and do not reuse those legacy keys in a live assessment.
 - Privacy/retention/deletion, safeguarding and age/guardian-consent, jurisdiction, hosting region/data-location and support-operating decisions remain launch gates.
 
