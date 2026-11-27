@@ -112,14 +112,14 @@ The server API helper blocks application creation, attempt start/save and final 
 - T4SC Supabase project: `qhslwfasplgigamujxvj`.
 - Applied migrations: `0001_t4sc_recruitment_schema`, `0002_application_and_assessment_fields`, `0003_service_role_grants_and_fk_indexes`, `0004_assessment_submission_security`, `0005_assessment_attempts`, `0006_experienced_route_name`, `0007_application_schema_v1`, `0008_applicant_auth_identity`, `0009_assessment_bank_content`.
 - Deployed Edge Function: `t4sc-api`, version **10**, ACTIVE.
-- `private_system_secrets`: one SHA-256 digest for the Next.js-to-Edge-Function proxy credential. RLS is enabled; anon/authenticated have no table grants. The raw credential is a Sensitive Vercel environment variable only.
+- `private_system_secrets`: one SHA-256 digest for the Next.js-to-Edge-Function proxy credential. RLS is enabled; anon/authenticated have no table grants. The raw credential is a Sensitive Vercel environment variable only. Edge Function v11 requires this proxy credential for every recognised API action.
 - `assessment_answer_keys`: 42 legacy sample rows.
 - Existing live applications: two, both Beginner at the last verification. The application rows have not been modified by this implementation slice.
 - `assessment_submissions`: zero rows at the last verification.
 - `assessment_attempts`: zero rows at the last verification. No real applicant attempt was created for testing.
 - Vercel Preview environment is configured read-only; application and assessment mutation requests are rejected before reaching Supabase. Production environment is not set to read-only.
 - Answer-key and attempt tables: RLS enabled; `anon` and `authenticated` cannot select; `service_role` can.
-- GitHub Actions on current head `81b4500bca94df36c1cdd344a190a99f28511fb5`: **42/42 tests passed**; `next build` compiled, TypeScript passed and all 24 routes were generated.
+- GitHub Actions on commit `81b4500bca94df36c1cdd344a190a99f28511fb5`: **42/42 tests passed**; `next build` compiled, TypeScript passed and all 24 routes were generated. A further current-head run is checking the final all-action proxy guard; its test phase has passed and the build phase is in progress.
 - The CI workflow includes a build-only placeholder Supabase URL/publishable key and read-only preview flags; it never uses production applicant data.
 - Vercel Preview has read-only environment flags and the API helper blocks applicant/assessment writes before Supabase.
 - A fresh Vercel preview could not be generated because Vercel returned `402 payment_required` after the free-tier deployment API cap of 100 deployments/day. The previous failed build at commit `5d58a11c058f971c8e23e619f6b47efb75a699f0` had a duplicate `email` property; that was fixed, and the current head passed the independent GitHub Actions production build. There is no current preview URL for the latest commit. The production site remains unchanged.
@@ -141,10 +141,7 @@ The previous production website still uses its older public form and reference/e
 
 Migration `0010_private_api_proxy_secret` adds `public.private_system_secrets`. The database holds only a SHA-256 digest for the `next_api_proxy` credential. RLS is enabled; browser roles have no grants. The raw 256-bit credential is stored as a Sensitive Vercel environment variable named `T4SC_API_PROXY_SECRET` for Production, Preview and Development, and is used only by the Next.js server API helper.
 
-The Next.js helper sends the credential in `x-t4sc-api-proxy-secret`. The Edge Function hashes the supplied value and compares it with the stored digest before it accepts:
-- schema-v1 application creation;
-- official assessment attempt start/read/save;
-- final assessment submission bound to an official attempt.
+The Next.js helper is marked `server-only` and sends the credential in `x-t4sc-api-proxy-secret`. The Edge Function hashes the supplied value and compares it with the stored digest before it accepts any recognised T4SC API action: application submission, status lookup, assessment submission, attempt start, attempt read or attempt save. Direct invocation of the Supabase Edge Function with only a publishable key or applicant token is rejected. The Vercel Preview write guard remains an independent guard that blocks mutations before the Edge Function is called.
 
 Legacy API compatibility remains for the existing production form/status path until the new branch is merged. The proxy secret is not stored in source control or sent to browser components. Vercel Preview write blocking remains an independent guard, so a preview request is rejected before it reaches Supabase.
 
