@@ -96,7 +96,7 @@ test("accepts one HTTPS work sample and rejects HTTP or malformed links", () => 
 });
 
 test("limits work-sample URL to 2048 characters", () => {
-  assert.equal(validateApplicationV1(valid({ workSampleUrl: "https://a.example/" + "x".repeat(2029) })).ok, false);
+  assert.equal(validateApplicationV1(valid({ workSampleUrl: "https://a.example/" + "x".repeat(2035) })).ok, false);
 });
 
 test("accepts only the five approved availability options", () => {
