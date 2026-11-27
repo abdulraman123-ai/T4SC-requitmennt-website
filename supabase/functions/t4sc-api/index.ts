@@ -268,12 +268,36 @@ Deno.serve(async (request: Request) => {
       const pathway = body.pathway === "department" ? "department: " + department : body.pathway;
       const idempotencyKey = validUuid(body.idempotencyKey) ? body.idempotencyKey : null;
 
+      let activeAttempt: { id: string; status: string } | null = null;
+      if (body.attemptId !== undefined || body.attemptToken !== undefined) {
+        if (!validUuid(body.attemptId) || !validUuid(body.attemptToken)) {
+          return json({ error: "Assessment attempt credentials are incomplete." }, 400);
+        }
+        const tokenHash = await hashAttemptToken(body.attemptToken);
+        const { data: attempt, error: attemptError } = await db.from("assessment_attempts")
+          .select("id,pathway,status,attempt_token_hash")
+          .eq("id", body.attemptId).eq("application_id", application.id).maybeSingle();
+        if (attemptError || !attempt || attempt.attempt_token_hash !== tokenHash || attempt.pathway !== pathway) {
+          return json({ error: "We could not verify this assessment attempt. Resume from the applicant portal or contact T4SC support." }, 403);
+        }
+        if (attempt.status !== "active" && attempt.status !== "submitted") {
+          return json({ error: "This assessment attempt is not active and cannot be submitted." }, 409);
+        }
+        activeAttempt = { id: attempt.id, status: attempt.status };
+      }
+
       const { data: existing, error: existingError } = await db.from("assessment_submissions")
         .select("id,submitted_at,scoring_status,submission_idempotency_key")
         .eq("application_id", application.id).eq("pathway", pathway).maybeSingle();
       if (existingError) return json({ error: "We could not verify the assessment state. Please retry." }, 503);
       if (existing) {
         if (idempotencyKey && existing.submission_idempotency_key === idempotencyKey) {
+          if (activeAttempt && activeAttempt.status === "active") {
+            const submittedAt = new Date().toISOString();
+            await db.from("assessment_attempts")
+              .update({ status: "submitted", submitted_at: submittedAt, updated_at: submittedAt })
+              .eq("id", activeAttempt.id).eq("status", "active");
+          }
           return json({ ...receipt(existing, pathway), repeatedRequest: true }, 200);
         }
         return json({ error: "This assessment has already been submitted and the official attempt is locked. Contact T4SC support if a verified technical problem affected you." }, 409);
@@ -288,6 +312,10 @@ Deno.serve(async (request: Request) => {
         const { data: previous, error } = await db.from("assessment_submissions").select("id")
           .eq("application_id", application.id).eq("pathway", "department: " + department).maybeSingle();
         if (error || !previous) return json({ error: "Complete the primary-department assessment before submitting the practical task." }, 409);
+      }
+
+      if (activeAttempt?.status === "submitted" && !existing) {
+        return json({ error: "This attempt is already submitted, but its submission receipt could not be found. Contact T4SC support." }, 409);
       }
 
       let objectiveScore: number | null = null;
@@ -341,6 +369,19 @@ Deno.serve(async (request: Request) => {
           return json({ error: "This assessment has already been submitted and the official attempt is locked." }, 409);
         }
         return json({ error: "We could not confirm your submission. Your attempt was not marked as failed; please retry or contact T4SC support." }, 503);
+      }
+
+      if (activeAttempt && activeAttempt.status === "active") {
+        const submittedAt = new Date().toISOString();
+        const { error: attemptUpdateError } = await db.from("assessment_attempts")
+          .update({ status: "submitted", submitted_at: submittedAt, updated_at: submittedAt })
+          .eq("id", activeAttempt.id).eq("application_id", application.id).eq("status", "active");
+        if (attemptUpdateError) {
+          return json({
+            ...receipt(saved, pathway),
+            warning: "Your submission receipt was saved, but the attempt state could not be refreshed. Do not submit again; contact T4SC support.",
+          }, 201);
+        }
       }
 
       const nextStatus = body.pathway === "general" ? "department_assessment" :
