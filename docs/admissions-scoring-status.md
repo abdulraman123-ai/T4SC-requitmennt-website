@@ -110,8 +110,8 @@ The server API helper blocks application creation, attempt start/save and final 
 ## Deployment and verification state
 
 - T4SC Supabase project: `qhslwfasplgigamujxvj`.
-- Applied migrations: `0001_t4sc_recruitment_schema`, `0002_application_and_assessment_fields`, `0003_service_role_grants_and_fk_indexes`, `0004_assessment_submission_security`, `0005_assessment_attempts`, `0006_experienced_route_name`, `0007_application_schema_v1`.
-- Deployed Edge Function: `t4sc-api`, version **7**, ACTIVE.
+- Applied migrations: `0001_t4sc_recruitment_schema`, `0002_application_and_assessment_fields`, `0003_service_role_grants_and_fk_indexes`, `0004_assessment_submission_security`, `0005_assessment_attempts`, `0006_experienced_route_name`, `0007_application_schema_v1`, `0008_applicant_auth_identity`.
+- Deployed Edge Function: `t4sc-api`, version **8**, ACTIVE.
 - `assessment_answer_keys`: 42 legacy sample rows.
 - Existing live applications: two, both Beginner at the last verification. The application rows have not been modified by this implementation slice.
 - `assessment_submissions`: zero rows at the last verification.
@@ -119,14 +119,26 @@ The server API helper blocks application creation, attempt start/save and final 
 - Vercel Preview environment is configured read-only; application and assessment mutation requests are rejected before reaching Supabase. Production environment is not set to read-only.
 - Answer-key and attempt tables: RLS enabled; `anon` and `authenticated` cannot select; `service_role` can.
 - GitHub Actions ran all four test files on the latest branch commit: **36/36 passed, 0 failed**.
-- Latest Next.js preview is **READY** at commit `c99a109fe27baee3296d59e8e7017755764c53b3`: https://t4sc-recruitment-website-2wv51wiww-abdulraman123-ais-projects.vercel.app
+- Latest verified Next.js preview is **READY** at commit `c99a109fe27baee3296d59e8e7017755764c53b3`: https://t4sc-recruitment-website-2wv51wiww-abdulraman123-ais-projects.vercel.app
 - The Next.js changes remain on the feature branch and have not been merged into `main` or deployed to the production website. Supabase migrations and Edge Function updates are already on the live T4SC backend.
+
+### 8. Verified applicant accounts and ownership binding
+
+The feature branch now adds a passwordless applicant access route at `/applicant-access`. It sends a Supabase magic link, creates an Auth user when necessary, and returns to the intended applicant route after the callback. The sign-in form uses a generic success message so it does not reveal whether an email was already registered.
+
+The Next.js server helper accepts an applicant context only after `auth.getUser()` confirms a user, email, and `email_confirmed_at`. The API routes forward that user's access token to the Edge Function. The Edge Function validates the bearer token with Supabase Auth, requires the token's email to match, writes `auth_user_id` to new v1 applications, and claims an unowned legacy application only when the verified account email matches the application email. Assessment attempts and new-attempt submissions must belong to the same verified Auth user.
+
+The application and portal forms use the signed-in verified email rather than letting applicants type a different account email. The portal status and community access requests also require the verified session.
+
+**Supabase dashboard configuration still required:** set the Auth Site URL to `https://t4sc-recruitment-website.vercel.app` and add `https://t4sc-recruitment-website.vercel.app/auth/callback` to the allowed redirect URLs. This Auth setting could not be updated through the connected Supabase controls. Do not tell applicants that magic-link access works on production until this redirect configuration is confirmed.
+
+The previous production website still uses its older public form and reference/email status route until this feature branch is merged. The deployed Edge Function retains compatibility for legacy application submissions and unclaimed legacy status lookups; the new v1/attempt flow is identity-bound.
 
 ## Remaining launch blockers
 
 1. **Official assessment bank integration.** Replace the legacy Common Reasoning and three-question department mini-screens with the complete current CR-A v0.2, LP-A v0.1 and all 12 department/experience banks, including the latest wording, marking and protected answer keys.
 2. **Rubric-based automatic evaluation.** Implement and validate written/practical scoring. Persist criterion marks, evidence/reasons, confidence, evaluator version, rubric version and timestamp. Evaluator failure must remain pending/technical.
-3. **Verified applicant accounts.** The portal still uses application reference plus email. Implement individual accounts, email verification, recovery, server session checks and applicant-owned records. Current application email validation is not mailbox verification.
+3. **Applicant account completion.** Passwordless verified-email sign-in and server-side ownership binding are implemented on this branch. Configure and verify the production Auth redirect allow-list, add account-change/support processes and complete the remaining verified recovery and session-lifecycle tests. Legacy records can be claimed only by a verified account using the same email address.
 4. **Rate limiting and abuse protection.** Add proportionate server-side throttling to application, status, attempt and submission endpoints; avoid exposing whether an email/reference pair exists through overly detailed error differences.
 5. **Admissions state machine.** Only coarse progress labels currently update. Initial qualifying gate, final automated qualification, primary/alternative-department evaluation and transfer acceptance, automated recommendation, formal offer, 48-hour response and expiry processing are not implemented yet.
 6. **15-day operating schedule.** Implement server-owned cycle dates, stage windows, applicant-specific deadlines, notification delivery and offer expiry. No attempt timer currently runs because the time-limit settings are not configured.
