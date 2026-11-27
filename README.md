@@ -68,6 +68,8 @@ The T4SC project is already created separately; do not reuse Axion credentials o
 - supabase/migrations/0008_applicant_auth_identity.sql
 - supabase/migrations/0009_assessment_bank_content.sql
 - supabase/migrations/0010_private_api_proxy_secret.sql
+- supabase/migrations/0009_assessment_bank_content.sql
+- supabase/migrations/0010_private_api_proxy_secret.sql
 
 Configure Vercel environment variables:
 - NEXT_PUBLIC_SUPABASE_URL
