@@ -24,7 +24,7 @@ The feature-branch application wizard now follows the approved application field
 
 The form saves a local draft and shows live word/character counts. The server validates the same constraints in `supabase/functions/t4sc-api/_shared/application-validation.ts`, stores `application_schema_version`, `declaration_version` and `privacy_notice_version`, and never fetches an applicant-provided URL. The previous production form remains supported by a separate legacy API path while this branch is being reviewed.
 
-**Important:** the email field is syntax-validated and normalized, but the account-based verified-email onboarding/recovery flow is not implemented yet. Do not describe an application email as verified merely because it passed this field validation.
+**Important:** the new application v1 path requires a verified Supabase Auth session and binds the application to `auth_user_id`. The passwordless magic-link route is on this branch. The production Auth Site URL/redirect allow-list still needs dashboard configuration and end-to-end verification. The legacy production form remains compatible until the branch is released.
 
 ### 2. Versioned scoring model — draft only
 
@@ -53,7 +53,7 @@ Migration `0004_assessment_submission_security` is applied. The deployed Edge Fu
 
 The answer-key table contains 42 entries for the simplified legacy forms: six Common Reasoning questions and three questions for each of 12 department/route combinations. Rows are tagged `legacy-ui-sample-v0`.
 
-This is **not** the complete official assessment bank in the execution pack. It does not include the complete CR-A v0.2, 12-question department routes or LP-A v0.1. Learning Potential is not yet present in the applicant UI/backend. Do not market the legacy mini-screens as the official examination.
+This is **not** the complete official assessment bank in the execution pack. It does not include the complete CR-A v0.2 or the 12-question department routes. LP-A v0.1 has been stored as a private draft bank in Supabase, but it is not exposed through the applicant UI or attempt API and cannot be started. Do not market the legacy mini-screens as the official examination.
 
 The database enforces one final submission per application/component using a unique index. Idempotency keys allow a retry after a lost HTTP response to return the existing receipt. A missing answer key or scoring/evaluation issue becomes technical review/pending, not an invented zero. The overall weighted admission score is not produced.
 
@@ -91,15 +91,15 @@ Migration `0008_applicant_auth_identity` adds a private applicant-auth identity 
 
 Migration `0009_assessment_bank_content` adds a private, versioned assessment-bank table. The live T4SC database contains the applicant-facing content for LP-A v0.1: the Nuru rules/explanation, worked example and ten two-mark questions (20 raw marks; 20–25 minutes). Its approval state is `draft_not_approved`.
 
-The table has RLS enabled, and anon/authenticated roles have no select grant. Only the service role can read it. Expected answers and reviewer rubrics were not seeded into the table. The bank is not exposed through the applicant UI or an API because the source pack explicitly marks LP-A v0.1 as a first complete draft for review, not approved. No LP-A attempt can be started and no LP-A result can affect a qualification decision.
+The table has RLS enabled, and anon/authenticated roles have no select grant. Only the service role can read it. Expected answers and reviewer rubrics were not seeded into the table. The bank is not exposed through the applicant UI or any public API because the source pack explicitly marks LP-A v0.1 as a first complete draft for review, not approved. No LP-A attempt can be started and no LP-A result can affect a qualification decision.
 
 The source's exact qualifying thresholds and per-component minimums remain unapproved; the scoring system therefore continues to keep admissions decisions disabled.
 
-### 9. Public admissions copy
+### 8. Public admissions copy
 
 The feature branch removes the superseded five-component weighting and draft pass bands from public pages. Admissions, Assessments and How It Works now describe the four components qualitatively, the automated qualification direction, the 15-calendar-day cycle and the full 48-hour offer response window without exposing internal pass thresholds or answer keys.
 
-### 8. Preview write protection
+### 10. Preview write protection
 
 The Vercel Preview environment has two environment flags:
 - `T4SC_PREVIEW_READ_ONLY=true` (server-only).
@@ -110,7 +110,7 @@ The server API helper blocks application creation, attempt start/save and final 
 ## Deployment and verification state
 
 - T4SC Supabase project: `qhslwfasplgigamujxvj`.
-- Applied migrations: `0001_t4sc_recruitment_schema`, `0002_application_and_assessment_fields`, `0003_service_role_grants_and_fk_indexes`, `0004_assessment_submission_security`, `0005_assessment_attempts`, `0006_experienced_route_name`, `0007_application_schema_v1`, `0008_applicant_auth_identity`.
+- Applied migrations: `0001_t4sc_recruitment_schema`, `0002_application_and_assessment_fields`, `0003_service_role_grants_and_fk_indexes`, `0004_assessment_submission_security`, `0005_assessment_attempts`, `0006_experienced_route_name`, `0007_application_schema_v1`, `0008_applicant_auth_identity`, `0009_assessment_bank_content`.
 - Deployed Edge Function: `t4sc-api`, version **8**, ACTIVE.
 - `assessment_answer_keys`: 42 legacy sample rows.
 - Existing live applications: two, both Beginner at the last verification. The application rows have not been modified by this implementation slice.
@@ -118,8 +118,8 @@ The server API helper blocks application creation, attempt start/save and final 
 - `assessment_attempts`: zero rows at the last verification. No real applicant attempt was created for testing.
 - Vercel Preview environment is configured read-only; application and assessment mutation requests are rejected before reaching Supabase. Production environment is not set to read-only.
 - Answer-key and attempt tables: RLS enabled; `anon` and `authenticated` cannot select; `service_role` can.
-- GitHub Actions ran all four test files on the latest branch commit: **36/36 passed, 0 failed**.
-- Latest verified Next.js preview is **READY** at commit `c99a109fe27baee3296d59e8e7017755764c53b3`: https://t4sc-recruitment-website-2wv51wiww-abdulraman123-ais-projects.vercel.app
+- GitHub Actions on commit `7f4a7ded0b68b2f75f6a7275f8834016f357f524`: **40/40 tests passed**; the `next build` step compiled, passed TypeScript and generated all 24 routes.
+- The Vercel Preview environment variables are set to read-only. A fresh Vercel preview could not be generated because the Vercel API hit its daily free-tier deployment cap (100 deployments/day). The previous Vercel attempt at commit `5d58a11c058f971c8e23e619f6b47efb75a699f0` failed on a duplicate `email` property; that defect has been fixed in later commits and the current GitHub Actions build passes. Do not treat the earlier preview URL as the current branch build.
 - The Next.js changes remain on the feature branch and have not been merged into `main` or deployed to the production website. Supabase migrations and Edge Function updates are already on the live T4SC backend.
 
 ### 8. Verified applicant accounts and ownership binding
