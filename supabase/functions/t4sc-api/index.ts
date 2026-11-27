@@ -123,7 +123,7 @@ Deno.serve(async (request: Request) => {
         const keyLevel = body.pathway === "general" ? "shared" : level;
         const { data: answerKeys, error: keysError } = await db.from("assessment_answer_keys")
           .select("question_id,correct_value")
-          .eq("pathway", body.pathway).eq("level", keyLevel)
+          .eq("pathway", body.pathway).eq("department", body.pathway === "general" ? "*" : department).eq("level", keyLevel)
           .order("question_id", { ascending: true });
         if (keysError || !answerKeys?.length) {
           scoringStatus = "technical_review_required";
