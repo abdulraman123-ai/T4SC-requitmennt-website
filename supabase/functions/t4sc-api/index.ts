@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { scoreObjectiveAnswers } from "./_shared/assessment-scoring.ts";
 import { hashAttemptToken, isResponsePayload, isResponseVersion } from "./_shared/attempt-security.ts";
+import { validateApplicationV1 } from "./_shared/application-validation.ts";
 
 const departments = ["AI & Machine Learning","Game Development","Full Stack Development & System Architecture","Cybersecurity & Systems Security"];
 const levels = ["Beginner","Developing","Experienced","Advanced"];
@@ -42,74 +43,27 @@ Deno.serve(async (request: Request) => {
       }
 
       if (newSchema) {
-        const required = [
-          "preferredName","email","country","primaryDepartment","alternativeDepartment",
-          "experienceLevel","motivation","learningGoals","weeklyAvailability",
-        ];
-        for (const field of required) {
-          if (typeof body[field] !== "string" || !body[field].trim()) {
-            return json({ error: "Please complete all required application fields." }, 400);
-          }
-        }
-        if (!validEmail(body.email)) return json({ error: "Enter a valid email address." }, 400);
-        if (!departments.includes(body.primaryDepartment) || !departments.includes(body.alternativeDepartment) ||
-            body.primaryDepartment === body.alternativeDepartment) {
-          return json({ error: "Choose one primary and a different alternative department." }, 400);
-        }
-        if (!["Beginner","Developing","Experienced"].includes(body.experienceLevel)) {
-          return json({ error: "Choose Beginner, Developing or Experienced for your assessment route." }, 400);
-        }
-        const motivationWords = body.motivation.trim().split(/\\s+/).length;
-        const goalWords = body.learningGoals.trim().split(/\\s+/).length;
-        const experienceDescription = typeof body.experienceDescription === "string" ? body.experienceDescription.trim() : "";
-        const accessibilityNeeds = typeof body.accessibilityNeeds === "string" ? body.accessibilityNeeds.trim() : "";
-        const workSampleValue = typeof body.workSampleUrl === "string" ? body.workSampleUrl.trim() : "";
-        if (motivationWords < 50 || motivationWords > 150) {
-          return json({ error: "Your motivation response must be 50–150 words." }, 400);
-        }
-        if (goalWords < 30 || goalWords > 120) {
-          return json({ error: "Your learning/goals response must be 30–120 words." }, 400);
-        }
-        if (experienceDescription && experienceDescription.split(/\\s+/).length > 150) {
-          return json({ error: "Your optional experience description must be 150 words or fewer." }, 400);
-        }
-        if (accessibilityNeeds.length > 500) {
-          return json({ error: "Your support request must be 500 characters or fewer." }, 400);
-        }
-        if (workSampleValue) {
-          if (workSampleValue.length > 2048) return json({ error: "The work-sample link is too long." }, 400);
-          try {
-            const sample = new URL(workSampleValue);
-            if (sample.protocol !== "https:") return json({ error: "A work-sample link must use HTTPS." }, 400);
-          } catch {
-            return json({ error: "Enter a valid HTTPS work-sample link." }, 400);
-          }
-        }
-        const weeklyOptions = ["Less than 2 hours","2–4 hours","5–7 hours","8 or more hours","Not sure yet"];
-        if (!weeklyOptions.includes(body.weeklyAvailability)) {
-          return json({ error: "Choose one of the listed weekly availability ranges." }, 400);
-        }
-        if (body.rulesAccepted !== true || body.honestyAccepted !== true || body.privacyAccepted !== true) {
-          return json({ error: "Please accept each required declaration before submitting." }, 400);
-        }
-        const region = typeof body.region === "string" ? body.region.trim() : "";
+        const validation = validateApplicationV1(body);
+        if (!validation.ok) return json({ error: validation.error }, 400);
+        const app = validation.value;
+
         const { data, error } = await db.from("applications").insert({
-          full_name: body.preferredName.trim(),
-          preferred_name: body.preferredName.trim(),
-          email: body.email.trim().toLowerCase(),
-          country: body.country.trim(),
-          region: region || null,
-          department: body.primaryDepartment,
-          secondary_interest: body.alternativeDepartment,
+          full_name: app.preferredName,
+          preferred_name: app.preferredName,
+          email: app.email,
+          country: app.country,
+          region: app.region,
+          department: app.primaryDepartment,
+          secondary_interest: app.alternativeDepartment,
           why_department: null,
-          assessment_level: body.experienceLevel,
-          experience: experienceDescription,
+          assessment_level: app.experienceLevel,
+          experience: app.experienceDescription,
           tools_topics: null,
-          motivation: body.motivation.trim(),
+          motivation: app.motivation,
           problem_to_solve: null,
-          learning_goals: body.learningGoals.trim(),
-          work_sample_url: workSampleValue || null,
-          weekly_availability: body.weeklyAvailability,
+          learning_goals: app.learningGoals,
+          work_sample_url: app.workSampleUrl,
+          weekly_availability: app.weeklyAvailability,
           session_availability: null,
           session_details: null,
           device_access: null,
@@ -118,10 +72,10 @@ Deno.serve(async (request: Request) => {
           rules_accepted: true,
           honesty_accepted: true,
           privacy_accepted: true,
-          accessibility_needs: accessibilityNeeds || null,
-          application_schema_version: "t4sc-application-v1",
-          declaration_version: "t4sc-declarations-v1",
-          privacy_notice_version: "t4sc-privacy-v1",
+          accessibility_needs: app.accessibilityNeeds,
+          application_schema_version: app.applicationSchemaVersion,
+          declaration_version: app.declarationVersion,
+          privacy_notice_version: app.privacyNoticeVersion,
           status: "submitted",
         }).select("reference").single();
         if (error) return json({ error: "We could not save your application. Please try again later." }, 503);
