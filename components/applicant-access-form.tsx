@@ -16,6 +16,7 @@ export function ApplicantAccessForm() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const callbackError = searchParams.get("error") === "callback";
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,6 +74,7 @@ export function ApplicantAccessForm() {
         <input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} />
         <span>I have read the <a href="/privacy-policy" target="_blank" rel="noreferrer">privacy notice</a> and <a href="/code-of-conduct" target="_blank" rel="noreferrer">community rules</a>.</span>
       </label>
+      {callbackError && <p className="form-error" role="alert">That sign-in link was invalid or expired. Request a new secure link below.</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       {sent && (
         <div className="auth-status" role="status">
