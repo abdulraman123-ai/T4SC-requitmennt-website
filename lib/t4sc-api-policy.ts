@@ -4,7 +4,8 @@ export type T4SCApiAction =
   | "assessment_submit"
   | "attempt_start"
   | "attempt_read"
-  | "attempt_save";
+  | "attempt_save"
+  | "offer_respond";
 
 export interface RuntimeEnvironment {
   T4SC_PREVIEW_READ_ONLY?: string;
@@ -17,6 +18,7 @@ const MUTATING_ACTIONS = new Set<T4SCApiAction>([
   "assessment_submit",
   "attempt_start",
   "attempt_save",
+  "offer_respond",
 ]);
 
 export function isT4SCMutationAction(action: T4SCApiAction): boolean {

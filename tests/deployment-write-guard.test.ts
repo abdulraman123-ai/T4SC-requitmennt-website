@@ -20,9 +20,11 @@ test("production permits normal applicant actions", () => {
   assert.equal(shouldBlockT4SCAction("application_submit", production), false);
   assert.equal(shouldBlockT4SCAction("attempt_start", production), false);
   assert.equal(shouldBlockT4SCAction("assessment_submit", production), false);
+  assert.equal(shouldBlockT4SCAction("offer_respond", production), false);
 });
 
 test("development defaults to read-only unless explicitly running production", () => {
   assert.equal(shouldBlockT4SCAction("application_submit", { NODE_ENV: "development" }), true);
   assert.equal(shouldBlockT4SCAction("attempt_save", {}), true);
+  assert.equal(shouldBlockT4SCAction("offer_respond", {}), true);
 });

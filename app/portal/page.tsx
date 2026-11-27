@@ -31,6 +31,10 @@ export default function Portal() {
   const [reference, setReference] = useState("");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<any>(null);
+  const [admissions, setAdmissions] = useState<any>(null);
+  const [offer, setOffer] = useState<any>(null);
+  const [offerBusy, setOfferBusy] = useState(false);
+  const [offerError, setOfferError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [inviteUrl, setInviteUrl] = useState("");
@@ -69,6 +73,9 @@ export default function Portal() {
     setBusy(true);
     setError("");
     setStatus(null);
+    setAdmissions(null);
+    setOffer(null);
+    setOfferError("");
     setInviteUrl("");
     setInviteMessage("");
 
@@ -83,6 +90,8 @@ export default function Portal() {
       if (!response.ok) throw new Error(data.error || "Unable to find your application.");
 
       setStatus(data.application);
+      setAdmissions(data.admissions ?? null);
+      setOffer(data.offer ?? null);
       if (communityEligibleStatuses.includes(data.application.status)) {
         try {
           const accessResponse = await fetch("/api/community-access", {
@@ -107,6 +116,46 @@ export default function Portal() {
       setError(lookupError instanceof Error ? lookupError.message : "Status lookup failed.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function respondToOffer(response: "accept" | "decline") {
+    if (!status || !offer || offer.status !== "offered") return;
+    setOfferBusy(true);
+    setOfferError("");
+    try {
+      const responseResult = await fetch("/api/offers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference: status.reference, offerId: offer.id, response }),
+        cache: "no-store",
+      });
+      const data = await responseResult.json();
+      if (!responseResult.ok) throw new Error(data.error || "Your offer response could not be confirmed.");
+      setOffer(data.offer ?? null);
+      setAdmissions(data.admissions ?? null);
+      if (data.applicationStatus) {
+        setStatus((current: any) => current ? { ...current, status: data.applicationStatus, updated_at: new Date().toISOString() } : current);
+      }
+      if (response === "accept" && data.offer?.status === "accepted") {
+        try {
+          const accessResponse = await fetch("/api/community-access", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reference: status.reference, email: verifiedEmail }),
+            cache: "no-store",
+          });
+          const accessData = await accessResponse.json();
+          if (accessResponse.ok && typeof accessData.inviteUrl === "string") setInviteUrl(accessData.inviteUrl);
+          else setInviteMessage(accessData.error || "Your offer is accepted. The community invitation is not available yet.");
+        } catch {
+          setInviteMessage("Your offer is accepted. We could not load the community invitation; contact T4SC admissions.");
+        }
+      }
+    } catch (err) {
+      setOfferError(err instanceof Error ? err.message : "Your offer response could not be confirmed.");
+    } finally {
+      setOfferBusy(false);
     }
   }
 
@@ -142,6 +191,34 @@ export default function Portal() {
           <h2>{labels[status.status] ?? status.status}</h2>
           <p>Hello {status.preferred_name || "applicant"}, your application reference is <b>{status.reference}</b>.</p>
           <div className="status-date">Last updated: {new Date(status.updated_at || status.created_at).toLocaleString()}</div>
+          {admissions && (
+            <div className="notice-panel" style={{ marginTop: 18 }}>
+              <b>Admissions progress: {String(admissions.status).replaceAll("_", " ")}</b>
+              {admissions.activeDepartment && <p>Current department: {admissions.activeDepartment}</p>}
+              <p className="small-note">This status is generated from your private admissions record.</p>
+            </div>
+          )}
+          {offer && (
+            <div className="community-access-card" style={{ marginTop: 18 }}>
+              <span className="section-kicker">FORMAL ADMISSION OFFER</span>
+              <h3>{offer.status === "offered" ? "Your offer is ready" : offer.status === "accepted" ? "Offer accepted" : offer.status === "declined" ? "Offer declined" : "Offer expired"}</h3>
+              <p>Department: <b>{offer.department}</b></p>
+              <p>Issued: {new Date(offer.issuedAt).toLocaleString()} ({Intl.DateTimeFormat().resolvedOptions().timeZone})</p>
+              <p>Response deadline: <b>{new Date(offer.expiresAt).toLocaleString()} ({Intl.DateTimeFormat().resolvedOptions().timeZone})</b></p>
+              {offer.status === "offered" ? (
+                <>
+                  <p>Your response must be recorded before the exact deadline above. The server timestamp, not the browser clock, determines whether your response is on time.</p>
+                  <div className="page-actions">
+                    <button type="button" className="button" disabled={offerBusy} onClick={() => void respondToOffer("accept")}>{offerBusy ? "Saving…" : "Accept offer"}</button>
+                    <button type="button" className="button button-quiet" disabled={offerBusy} onClick={() => void respondToOffer("decline")}>Decline offer</button>
+                  </div>
+                  {offerError && <p className="form-error" role="alert">{offerError}</p>}
+                </>
+              ) : (
+                <p className="small-note">The server has recorded this offer outcome. The response is locked and cannot be changed from this page.</p>
+              )}
+            </div>
+          )}
           <p className="small-note">This status is private. The admissions team will communicate decisions through the contact route supplied in your application.</p>
 
           <div className="community-access-card">

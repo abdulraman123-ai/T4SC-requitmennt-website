@@ -75,7 +75,7 @@ Deno.serve(async (request: Request) => {
 
     const proxyProtectedAction =
       (body.action === "application_submit" && body.applicationSchemaVersion === "t4sc-application-v1") ||
-      ["attempt_start", "attempt_read", "attempt_save"].includes(body.action) ||
+      ["attempt_start", "attempt_read", "attempt_save", "offer_respond"].includes(body.action) ||
       (body.action === "assessment_submit" && (body.attemptId !== undefined || body.attemptToken !== undefined));
 
     if (proxyProtectedAction) {
@@ -176,19 +176,116 @@ Deno.serve(async (request: Request) => {
         .eq("reference", body.reference.trim().toUpperCase())
         .eq("email", body.email.trim().toLowerCase()).maybeSingle();
       if (error || !data) return json({ error: "We could not find an application matching those details." }, 404);
+
+      let verifiedOwner = false;
       if (data.auth_user_id || authenticatedApplicant) {
         if (!authenticatedApplicant || !(await ensureApplicationOwner(db, data, authenticatedApplicant, body.email))) {
           return json({ error: "We could not find an application matching those details." }, 404);
         }
+        verifiedOwner = true;
       }
-      return json({ application: {
-        reference: data.reference, preferred_name: data.preferred_name, status: data.status,
-        created_at: data.created_at, updated_at: data.updated_at,
-      } });
+
+      let admissions: Record<string, unknown> | null = null;
+      let offer: Record<string, unknown> | null = null;
+      if (verifiedOwner) {
+        const [admissionsResult, offerResult] = await Promise.all([
+          db.from("application_admissions")
+            .select("status,active_department,reason_codes,ruleset_version,updated_at")
+            .eq("application_id", data.id).maybeSingle(),
+          db.from("admission_offers")
+            .select("id,department,status,issued_at,expires_at,responded_at,resolved_at,notification_status")
+            .eq("application_id", data.id).maybeSingle(),
+        ]);
+        if (admissionsResult.error || offerResult.error) {
+          return json({ error: "We could not load your private admissions details. Please retry." }, 503);
+        }
+        admissions = admissionsResult.data ? {
+          status: admissionsResult.data.status,
+          activeDepartment: admissionsResult.data.active_department,
+          reasonCodes: admissionsResult.data.reason_codes,
+          rulesetVersion: admissionsResult.data.ruleset_version,
+          updatedAt: admissionsResult.data.updated_at,
+        } : null;
+        offer = offerResult.data ? {
+          id: offerResult.data.id,
+          department: offerResult.data.department,
+          status: offerResult.data.status,
+          issuedAt: offerResult.data.issued_at,
+          expiresAt: offerResult.data.expires_at,
+          respondedAt: offerResult.data.responded_at,
+          resolvedAt: offerResult.data.resolved_at,
+          notificationStatus: offerResult.data.notification_status,
+        } : null;
+      }
+
+      return json({
+        application: {
+          reference: data.reference, preferred_name: data.preferred_name, status: data.status,
+          created_at: data.created_at, updated_at: data.updated_at,
+        },
+        admissions,
+        offer,
+      });
     }
 
+    if (body.action === "offer_respond") {
+      if (typeof body.reference !== "string" || !validEmail(body.email) ||
+          !validUuid(body.offerId) || !["accept","decline"].includes(body.response)) {
+        return json({ error: "Offer response details are incomplete." }, 400);
+      }
+      if (!authenticatedApplicant ||
+          authenticatedApplicant.email?.trim().toLowerCase() !== body.email.trim().toLowerCase()) {
+        return json({ error: "Sign in with the verified applicant account linked to this offer." }, 403);
+      }
 
-    if (body.action === "attempt_start") {
+      const { data: application, error: applicationError } = await db.from("applications")
+        .select("id,auth_user_id")
+        .eq("reference", body.reference.trim().toUpperCase())
+        .eq("email", body.email.trim().toLowerCase()).maybeSingle();
+      if (applicationError || !application) return json({ error: "We could not verify this application." }, 404);
+      if (!(await ensureApplicationOwner(db, application, authenticatedApplicant, body.email))) {
+        return json({ error: "We could not verify this application." }, 404);
+      }
+
+      const { data: offer, error: responseError } = await db.rpc("t4sc_respond_to_admission_offer", {
+        p_offer_id: body.offerId,
+        p_application_id: application.id,
+        p_response: body.response,
+      });
+      if (responseError) {
+        return json({ error: "We could not process this offer response. Refresh the portal to check its current status." }, 409);
+      }
+      const record = Array.isArray(offer) ? offer[0] : offer;
+      if (!record || typeof record !== "object") {
+        return json({ error: "The offer response could not be confirmed. Refresh the portal before trying again." }, 503);
+      }
+
+      const [{ data: admissionsState, error: stateError }, { data: currentApplication, error: currentApplicationError }] = await Promise.all([
+        db.from("application_admissions").select("status,active_department,reason_codes,ruleset_version,updated_at")
+          .eq("application_id", application.id).maybeSingle(),
+        db.from("applications").select("status").eq("id", application.id).maybeSingle(),
+      ]);
+      if (stateError || currentApplicationError) {
+        return json({ error: "Your offer response was recorded, but the latest status could not be loaded. Refresh the portal." }, 503);
+      }
+
+      return json({
+        offer: {
+          id: record.id, department: record.department, status: record.status,
+          issuedAt: record.issued_at, expiresAt: record.expires_at,
+          respondedAt: record.responded_at, resolvedAt: record.resolved_at,
+        },
+        admissions: admissionsState ? {
+          status: admissionsState.status, activeDepartment: admissionsState.active_department,
+          reasonCodes: admissionsState.reason_codes, rulesetVersion: admissionsState.ruleset_version,
+          updatedAt: admissionsState.updated_at,
+        } : null,
+        applicationStatus: currentApplication?.status ?? null,
+      });
+    }
+
+    
+if (body.action === "attempt_start") {
       if (typeof body.reference !== "string" || !validEmail(body.email) ||
           !allowedPathways.includes(body.pathway) ||
           !validUuid(body.idempotencyKey) || !validUuid(body.attemptToken)) {
