@@ -23,14 +23,26 @@ The form follows the T4SC Recruitment & Admissions System Specification:
 
 No exact date of birth or age gate is used. Device/connectivity answers are for participation planning, not a measure of ability. Previous technical experience and a beginner portfolio are not compulsory.
 
-## Assessment flow
-1. Application
-2. Common general screening (reasoning, problem decomposition, learning response, communication and judgement; approximately 20–30 minutes)
-3. Department assessment (4 departments × 3 experience levels)
-4. Practical task (approximately 30–60 minutes; written, pseudocode, small code or no-code alternatives)
-5. Human review and private decision communication
+## Assessment flow — implementation status
+The public app currently contains a legacy Common Reasoning mini-screen, a three-question department mini-screen and a practical response form. These are implementation placeholders and are **not** the complete approved assessment banks in the T4SC AI Developer Execution Pack v1.0.
 
-Scoring framework: reasoning 15, department fundamentals 25, practical task 35, learning/feedback 15, communication/integrity/collaboration 10. Automated checks do not make final admissions decisions. Cybersecurity tasks use fictional scenarios, supplied samples or explicitly authorised labs only.
+The execution pack's target scoring structure is:
+- Common Reasoning: 12 raw marks → 15 weighted points
+- Department Assessment: 20 raw marks → 25 weighted points
+- Learning Potential: 20 raw marks → 20 weighted points
+- Practical Assessment: 40 raw marks → 40 weighted points
+
+The versioned scoring core and candidate progression gates are currently draft-only and do not issue admissions decisions. The live Edge Function scores the objective portion of the current legacy mini-screens against server-side keys; written and practical rubric scoring remains pending. Do not treat the 42 seeded `legacy-ui-sample-v0` keys as the official assessment bank.
+
+The target admissions model requires a validated automated evaluator and versioned qualification rules. A technical/scoring failure must remain pending or require technical review, never become an invented zero or automatic rejection. Cybersecurity scenarios remain fictional or explicitly authorised only.
+
+## Assessment security implemented so far
+- The live `t4sc-api` Edge Function retrieves objective answer keys server-side. The answer-key table has RLS enabled and no `anon` or `authenticated` grants.
+- Final submissions are protected by a database unique index on application plus component/pathway.
+- The preview client sends idempotency keys and displays a receipt only after server confirmation.
+- Written/practical scoring is not yet implemented; these are stored pending rubric evaluation.
+- This is not yet a full attempt system: server-started attempts, authoritative timers, 10-second autosave, checkpoint recovery and technical/accessibility reopening are still outstanding.
+- The GitHub repository is currently public and older commits contain answer-key copies. Treat those old keys as exposed; current-branch cleanup does not erase repository history.
 
 ## Design and accessibility
 Responsive multi-page navigation, dark navy base with warm orange/yellow accents, animated ambient background, scroll reveal, floating/orbiting hero elements and reduced-motion support. Motion is CSS-led and lightweight; the site respects the user's reduced-motion preference.
@@ -39,16 +51,18 @@ Responsive multi-page navigation, dark navy base with warm orange/yellow accents
 Next.js 16, React 19, TypeScript, Tailwind CSS 4, Supabase and Vercel.
 
 ## Supabase setup required before live submissions
-Create a separate T4SC Supabase project. Do not reuse Axion credentials or the Axion database. Apply:
+The T4SC project is already created separately; do not reuse Axion credentials or the Axion database. Applied migrations:
 - supabase/migrations/0001_t4sc_recruitment.sql
 - supabase/migrations/0002_application_and_assessment_fields.sql
+- supabase/migrations/0003_service_role_grants_and_fk_indexes.sql
+- supabase/migrations/0004_assessment_submission_security.sql
 
 Configure Vercel environment variables:
 - NEXT_PUBLIC_SUPABASE_URL
 - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (preferred) or NEXT_PUBLIC_SUPABASE_ANON_KEY
 - The T4SC Edge Function uses Supabase's server-managed service-role secret internally; do not copy it into client-side code
 
-Application, status and assessment API routes forward validated requests to the private-data Edge Function. Its deployable source is versioned at `supabase/functions/t4sc-api/index.ts`; the deployed function uses the project-managed service-role secret internally, and that key is never sent to the browser or stored in Vercel. Reviewer access must be implemented with authenticated roles and appropriate RLS policies before real reviewers access data. The status endpoint exposes only the applicant's own stage, never answers, scores or reviewer notes.
+Application, status and assessment API routes forward requests to the private-data Edge Function. Its deployable source is versioned at `supabase/functions/t4sc-api/index.ts`; the deployed function uses the project-managed service-role secret internally, and that key is never sent to the browser or stored in Vercel. The deployed `t4sc-api` function is version 3. Reviewer access must be implemented with authenticated roles and appropriate RLS policies before reviewers access applicant data. The status endpoint exposes only an applicant's own stage, never answers or reviewer notes.
 
 ## Founder decisions still to confirm before public recruitment promotion
 Geographic eligibility, participation mode, weekly minimum commitment, intake capacity, recruitment deadline/window, assessment language options, application fee, foundation-route support, reapplication period and privacy/retention details. The public copy deliberately does not invent these.
