@@ -393,14 +393,14 @@ Deno.serve(async (request: Request) => {
       const pathway = body.pathway === "department" ? "department: " + department : body.pathway;
       const idempotencyKey = validUuid(body.idempotencyKey) ? body.idempotencyKey : null;
 
-      let activeAttempt: { id: string; status: string } | null = null;
+      let activeAttempt: { id: string; status: string; response: Record<string, unknown>; responseVersion: number } | null = null;
       if (body.attemptId !== undefined || body.attemptToken !== undefined) {
         if (!validUuid(body.attemptId) || !validUuid(body.attemptToken)) {
           return json({ error: "Assessment attempt credentials are incomplete." }, 400);
         }
         const tokenHash = await hashAttemptToken(body.attemptToken);
         const { data: attempt, error: attemptError } = await db.from("assessment_attempts")
-          .select("id,pathway,status,attempt_token_hash")
+          .select("id,pathway,status,attempt_token_hash,response,response_version")
           .eq("id", body.attemptId).eq("application_id", application.id).maybeSingle();
         if (attemptError || !attempt || attempt.attempt_token_hash !== tokenHash || attempt.pathway !== pathway) {
           return json({ error: "We could not verify this assessment attempt. Resume from the applicant portal or contact T4SC support." }, 403);
@@ -408,7 +408,15 @@ Deno.serve(async (request: Request) => {
         if (attempt.status !== "active" && attempt.status !== "submitted") {
           return json({ error: "This assessment attempt is not active and cannot be submitted." }, 409);
         }
-        activeAttempt = { id: attempt.id, status: attempt.status };
+        if (!attempt.response || typeof attempt.response !== "object" || Array.isArray(attempt.response) || attempt.response_version < 1) {
+          return json({ error: "Save your latest answers and wait for the confirmed checkpoint before submitting." }, 409);
+        }
+        activeAttempt = {
+          id: attempt.id,
+          status: attempt.status,
+          response: attempt.response as Record<string, unknown>,
+          responseVersion: attempt.response_version,
+        };
       }
 
       const { data: existing, error: existingError } = await db.from("assessment_submissions")
@@ -443,6 +451,8 @@ Deno.serve(async (request: Request) => {
         return json({ error: "This attempt is already submitted, but its submission receipt could not be found. Contact T4SC support." }, 409);
       }
 
+      const submittedAnswers = activeAttempt ? activeAttempt.response : body.answers;
+
       let objectiveScore: number | null = null;
       let objectiveMax: number | null = null;
       let scoringStatus = "pending_rubric_scoring";
@@ -459,7 +469,7 @@ Deno.serve(async (request: Request) => {
           scoringVersion = "answer-key-unavailable";
         } else {
           try {
-            const objective = scoreObjectiveAnswers(body.answers.multipleChoice, answerKeys);
+            const objective = scoreObjectiveAnswers(submittedAnswers.multipleChoice, answerKeys);
             objectiveScore = objective.score;
             objectiveMax = objective.maximum;
             scoringStatus = "objective_only";
@@ -474,7 +484,7 @@ Deno.serve(async (request: Request) => {
         application_id: application.id,
         pathway,
         level,
-        answers: body.answers,
+        answers: submittedAnswers,
         score: null,
         objective_score: objectiveScore,
         objective_max: objectiveMax,
