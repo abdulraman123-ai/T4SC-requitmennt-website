@@ -1,14 +1,13 @@
 /**
- * T4SC admissions scoring model (draft, intentionally not wired to production).
- * Source: T4SC AI Developer Execution Pack v1.0, 27 November 2026.
+ * T4SC admissions scoring baseline.
  *
- * Component maxima and weighted conversion are implemented here. Candidate
- * gates are included for review only: final thresholds/minima still require
- * founder approval and route calibration. Never issue live decisions from
- * this module.
+ * The component weights and initial/final qualification thresholds are
+ * founder-approved in the T4SC AI Developer Execution Pack v1.0 (27 Nov 2026).
+ * Live decisions remain disabled until automated rubric evaluation is validated
+ * and route calibration is approved for the applicant's experience route.
  */
-export const ADMISSIONS_RULESET_VERSION = "t4sc-2026-11-27-draft-1" as const;
-export const ADMISSIONS_RULESET_STATUS = "draft-not-for-production" as const;
+export const ADMISSIONS_RULESET_VERSION = "t4sc-admissions-2026-11-27-approved-baseline-v1" as const;
+export const ADMISSIONS_RULESET_STATUS = "approved-baseline-pending-evaluator-and-route-validation" as const;
 export const LIVE_ADMISSIONS_DECISIONS_ENABLED = false as const;
 
 export const ADMISSIONS_COMPONENTS = {
@@ -22,11 +21,7 @@ export type AdmissionsComponent = keyof typeof ADMISSIONS_COMPONENTS;
 export type RawAdmissionsScores = Partial<Record<AdmissionsComponent, number | null>>;
 type CompleteRawAdmissionsScores = Record<AdmissionsComponent, number>;
 
-/**
- * Candidate gates transcribed from the opening execution manual.
- * Inactive pending final founder approval, route calibration and validation.
- */
-export const DRAFT_PROGRESSION_THRESHOLDS = {
+export const APPROVED_PROGRESSION_THRESHOLDS = {
   initial: {
     minimumRaw: { commonReasoning: 6, learningPotential: 10 },
     minimumCombinedWeighted: 21,
@@ -44,6 +39,9 @@ export const DRAFT_PROGRESSION_THRESHOLDS = {
   },
 } as const;
 
+/** @deprecated Kept as a compatibility alias; the thresholds are approved. */
+export const DRAFT_PROGRESSION_THRESHOLDS = APPROVED_PROGRESSION_THRESHOLDS;
+
 export interface WeightedAdmissionsScore {
   rulesetVersion: typeof ADMISSIONS_RULESET_VERSION;
   rulesetStatus: typeof ADMISSIONS_RULESET_STATUS;
@@ -54,16 +52,19 @@ export interface WeightedAdmissionsScore {
   missingComponents: AdmissionsComponent[];
 }
 
-export type DraftGateState = "pending" | "draft-pass" | "draft-not-pass";
-
-export interface DraftGateEvaluation {
+export type GateState = "pending" | "qualified" | "not-qualified";
+export interface GateEvaluation {
   rulesetVersion: typeof ADMISSIONS_RULESET_VERSION;
   rulesetStatus: typeof ADMISSIONS_RULESET_STATUS;
   liveDecision: false;
-  state: DraftGateState;
+  state: GateState;
   weightedScore: number | null;
   reasons: string[];
 }
+
+/** @deprecated Compatibility aliases for the earlier draft-only API. */
+export type DraftGateState = GateState;
+export type DraftGateEvaluation = GateEvaluation;
 
 const COMPONENT_KEYS = Object.keys(ADMISSIONS_COMPONENTS) as AdmissionsComponent[];
 
@@ -88,13 +89,11 @@ function emptyScoreRecord(): Record<AdmissionsComponent, number | null> {
 }
 
 /**
- * Converts available component scores using raw/rawMaximum*weightedMaximum.
- * Missing values remain null, never zero. The total is available only when
- * all four component scores have been supplied.
+ * Converts available component marks using raw/rawMaximum*weightedMaximum.
+ * Missing scores remain null; the overall total exists only when all four
+ * scored components are present. Rounding is for display only.
  */
-export function calculateWeightedAdmissionsScore(
-  input: RawAdmissionsScores,
-): WeightedAdmissionsScore {
+export function calculateWeightedAdmissionsScore(input: RawAdmissionsScores): WeightedAdmissionsScore {
   const rawScores = emptyScoreRecord();
   const weightedScores = emptyScoreRecord();
   const missingComponents: AdmissionsComponent[] = [];
@@ -105,7 +104,6 @@ export function calculateWeightedAdmissionsScore(
       missingComponents.push(component);
       continue;
     }
-
     validateRawScore(component, score);
     rawScores[component] = score;
     const rule = ADMISSIONS_COMPONENTS[component];
@@ -128,13 +126,10 @@ export function calculateWeightedAdmissionsScore(
   };
 }
 
-/**
- * Evaluates the candidate initial checkpoint only. It does not grant admission.
- * The result is always labelled draft and cannot be used by production flows.
- */
-export function evaluateDraftInitialGate(
+/** Applies the approved shared initial gate. This is not a live decision. */
+export function evaluateInitialGate(
   input: Pick<RawAdmissionsScores, "commonReasoning" | "learningPotential">,
-): DraftGateEvaluation {
+): GateEvaluation {
   const common = input.commonReasoning;
   const learning = input.learningPotential;
 
@@ -157,31 +152,28 @@ export function evaluateDraftInitialGate(
     (learning / ADMISSIONS_COMPONENTS.learningPotential.rawMaximum) * ADMISSIONS_COMPONENTS.learningPotential.weightedMaximum;
   const reasons: string[] = [];
 
-  if (common < DRAFT_PROGRESSION_THRESHOLDS.initial.minimumRaw.commonReasoning) {
-    reasons.push("Common Reasoning is below the candidate component minimum.");
+  if (common < APPROVED_PROGRESSION_THRESHOLDS.initial.minimumRaw.commonReasoning) {
+    reasons.push("Common Reasoning is below the approved component minimum (6/12).");
   }
-  if (learning < DRAFT_PROGRESSION_THRESHOLDS.initial.minimumRaw.learningPotential) {
-    reasons.push("Learning Potential is below the candidate component minimum.");
+  if (learning < APPROVED_PROGRESSION_THRESHOLDS.initial.minimumRaw.learningPotential) {
+    reasons.push("Learning Potential is below the approved component minimum (10/20).");
   }
-  if (combinedWeighted < DRAFT_PROGRESSION_THRESHOLDS.initial.minimumCombinedWeighted) {
-    reasons.push("Combined weighted initial score is below the candidate checkpoint threshold.");
+  if (combinedWeighted < APPROVED_PROGRESSION_THRESHOLDS.initial.minimumCombinedWeighted) {
+    reasons.push("Combined weighted initial score is below the approved threshold (21/35).");
   }
 
   return {
     rulesetVersion: ADMISSIONS_RULESET_VERSION,
     rulesetStatus: ADMISSIONS_RULESET_STATUS,
     liveDecision: false,
-    state: reasons.length === 0 ? "draft-pass" : "draft-not-pass",
+    state: reasons.length === 0 ? "qualified" : "not-qualified",
     weightedScore: combinedWeighted,
     reasons,
   };
 }
 
-/**
- * Evaluates the four candidate final-gate criteria. Missing marks remain
- * pending; a high total cannot compensate for a failed component floor.
- */
-export function evaluateDraftFinalGate(input: RawAdmissionsScores): DraftGateEvaluation {
+/** Applies the approved final gate; every component floor is mandatory. */
+export function evaluateFinalGate(input: RawAdmissionsScores): GateEvaluation {
   const scoring = calculateWeightedAdmissionsScore(input);
   if (!scoring.complete || scoring.weightedTotal === null) {
     return {
@@ -196,27 +188,31 @@ export function evaluateDraftFinalGate(input: RawAdmissionsScores): DraftGateEva
 
   const reasons: string[] = [];
   for (const component of COMPONENT_KEYS) {
-    const minimum = DRAFT_PROGRESSION_THRESHOLDS.final.minimumRaw[component];
+    const minimum = APPROVED_PROGRESSION_THRESHOLDS.final.minimumRaw[component];
     const score = scoring.rawScores[component];
     if (score !== null && score < minimum) {
-      reasons.push(component + " is below the candidate component minimum.");
+      reasons.push(component + " is below the approved component minimum.");
     }
   }
-  if (scoring.weightedTotal < DRAFT_PROGRESSION_THRESHOLDS.final.minimumOverallWeighted) {
-    reasons.push("Overall weighted score is below the candidate final threshold.");
+  if (scoring.weightedTotal < APPROVED_PROGRESSION_THRESHOLDS.final.minimumOverallWeighted) {
+    reasons.push("Overall weighted score is below the approved final threshold (70/100).");
   }
 
   return {
     rulesetVersion: ADMISSIONS_RULESET_VERSION,
     rulesetStatus: ADMISSIONS_RULESET_STATUS,
     liveDecision: false,
-    state: reasons.length === 0 ? "draft-pass" : "draft-not-pass",
+    state: reasons.length === 0 ? "qualified" : "not-qualified",
     weightedScore: scoring.weightedTotal,
     reasons,
   };
 }
 
-/** Shape helper for services that require all four numeric component marks. */
+/** @deprecated Use evaluateInitialGate; kept for older feature-branch callers. */
+export const evaluateDraftInitialGate = evaluateInitialGate;
+/** @deprecated Use evaluateFinalGate; kept for older feature-branch callers. */
+export const evaluateDraftFinalGate = evaluateFinalGate;
+
 export function isCompleteAdmissionsScore(input: RawAdmissionsScores): input is CompleteRawAdmissionsScores {
   return COMPONENT_KEYS.every((component) => isPresentScore(input[component]));
 }
