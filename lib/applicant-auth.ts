@@ -9,10 +9,8 @@ export interface VerifiedApplicantContext {
 export async function getVerifiedApplicantContext(): Promise<VerifiedApplicantContext | null> {
   try {
     const supabase = await createClient();
-    const [{ data: userData, error: userError }, { data: sessionData }] = await Promise.all([
-      supabase.auth.getUser(),
-      supabase.auth.getSession(),
-    ]);
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const { data: sessionData } = await supabase.auth.getSession();
 
     const user = userData.user;
     const accessToken = sessionData.session?.access_token;
