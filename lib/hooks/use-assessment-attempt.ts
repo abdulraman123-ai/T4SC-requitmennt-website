@@ -34,6 +34,7 @@ export function useAssessmentAttempt({ reference, email, pathway, department }: 
   const [phase, setPhase] = useState<AttemptPhase>("loading");
   const [error, setError] = useState("");
   const [attemptId, setAttemptId] = useState("");
+  const [attemptToken, setAttemptToken] = useState("");
   const [restoredResponse, setRestoredResponse] = useState<Record<string, unknown>>({});
   const [responseVersion, setResponseVersion] = useState(0);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
@@ -58,6 +59,7 @@ export function useAssessmentAttempt({ reference, email, pathway, department }: 
   const acceptAttempt = useCallback((data: AttemptData, envelope: AttemptEnvelope) => {
     const nextEnvelope = { ...envelope, attemptId: data.id };
     tokenRef.current = envelope.attemptToken;
+    setAttemptToken(envelope.attemptToken);
     setAttemptId(data.id);
     versionRef.current = data.responseVersion ?? 0;
     setResponseVersion(data.responseVersion ?? 0);
@@ -206,6 +208,7 @@ export function useAssessmentAttempt({ reference, email, pathway, department }: 
     phase,
     started: phase === "active",
     attemptId,
+    attemptToken,
     restoredResponse,
     responseVersion,
     lastSavedAt,
