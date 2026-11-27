@@ -73,14 +73,10 @@ Deno.serve(async (request: Request) => {
 
     const body = await request.json();
 
-    const proxyProtectedAction = [
-      "application_submit",
-      "status_lookup",
-      "assessment_submit",
-      "attempt_start",
-      "attempt_read",
-      "attempt_save",
-    ].includes(body.action);
+    const proxyProtectedAction =
+      (body.action === "application_submit" && body.applicationSchemaVersion === "t4sc-application-v1") ||
+      ["attempt_start", "attempt_read", "attempt_save"].includes(body.action) ||
+      (body.action === "assessment_submit" && (body.attemptId !== undefined || body.attemptToken !== undefined));
 
     if (proxyProtectedAction) {
       const suppliedProxySecret = request.headers.get("x-t4sc-api-proxy-secret") || "";
