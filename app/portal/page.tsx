@@ -88,7 +88,7 @@ export default function Portal() {
           const accessResponse = await fetch("/api/community-access", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reference, email }),
+            body: JSON.stringify({ reference, email: verifiedEmail }),
             cache: "no-store",
           });
           const accessData = await accessResponse.json();
