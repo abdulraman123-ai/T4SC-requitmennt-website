@@ -1,0 +1,32 @@
+name: T4SC admissions validation
+
+on:
+  push:
+    branches:
+      - main
+      - feat/admissions-scoring-core-draft
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  admissions-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Run scoring, assessment and application tests
+        run: npm run test:admissions
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_build_placeholder
+          T4SC_PREVIEW_READ_ONLY: "true"
+          NEXT_PUBLIC_T4SC_PREVIEW_READ_ONLY: "true"

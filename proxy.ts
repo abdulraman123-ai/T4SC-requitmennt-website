@@ -21,8 +21,13 @@ export async function proxy(request: NextRequest) {
 
   const { data, error } = await supabase.auth.getClaims();
   if (error || !data?.claims) {
+    const isApplicantPath = request.nextUrl.pathname === "/apply" ||
+      request.nextUrl.pathname.startsWith("/apply/") ||
+      request.nextUrl.pathname === "/portal" ||
+      request.nextUrl.pathname.startsWith("/portal/") ||
+      request.nextUrl.pathname.startsWith("/screening/");
     const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
+    loginUrl.pathname = isApplicantPath ? "/applicant-access" : "/login";
     loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
     const redirectResponse = NextResponse.redirect(loginUrl);
     response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
@@ -31,4 +36,4 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/admin/:path*"] };
+export const config = { matcher: ["/admin/:path*", "/apply/:path*", "/portal/:path*", "/screening/:path*"] };

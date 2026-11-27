@@ -10,6 +10,10 @@ function createFallbackClient() {
   return {
     auth: {
       getUser: async () => ({ data: { user: null }, error: null }),
+      signInWithOtp: async () => ({
+        data: { user: null, session: null },
+        error: { message: "Supabase is not configured yet.", status: 500 },
+      }),
       signInWithPassword: async () => ({
         data: { user: null, session: null },
         error: { message: "Supabase is not configured yet.", status: 500 },

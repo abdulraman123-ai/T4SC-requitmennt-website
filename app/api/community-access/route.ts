@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { callT4SCApi } from "@/lib/t4sc-api";
+import { getVerifiedApplicantContext } from "@/lib/applicant-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -22,10 +23,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Enter your application reference and email address." }, { status: 400, headers: noStoreHeaders });
     }
 
+    const applicant = await getVerifiedApplicantContext();
+    if (!applicant || body.email.trim().toLowerCase() !== applicant.email) {
+      return NextResponse.json({ error: "Sign in with the verified email linked to your application to request community access." }, { status: 401, headers: noStoreHeaders });
+    }
     const verification = await callT4SCApi("status_lookup", {
       reference: body.reference,
       email: body.email,
-    });
+    }, applicant.accessToken);
     if (verification.status !== 200) {
       return NextResponse.json({ error: "We could not verify this application. Check your reference and email." }, { status: verification.status, headers: noStoreHeaders });
     }
