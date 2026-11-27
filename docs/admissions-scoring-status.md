@@ -87,6 +87,14 @@ The database checks that any work-sample URL uses HTTPS and is no longer than 2,
 
 The feature branch removes the superseded five-component weighting and draft pass bands from public pages. Admissions, Assessments and How It Works now describe the four components qualitatively, the automated qualification direction, the 15-calendar-day cycle and the full 48-hour offer response window without exposing internal pass thresholds or answer keys.
 
+### 8. Preview write protection
+
+The Vercel Preview environment has two environment flags:
+- `T4SC_PREVIEW_READ_ONLY=true` (server-only).
+- `NEXT_PUBLIC_T4SC_PREVIEW_READ_ONLY=true` (client UI notice).
+
+The server API helper blocks application creation, attempt start/save and final assessment submission whenever the runtime is a Preview deployment, development runtime or explicitly read-only. Read-only status lookups remain available. Production requests are not blocked by this preview policy. This protects the live Supabase database from accidental test submissions through the public preview URL.
+
 ## Deployment and verification state
 
 - T4SC Supabase project: `qhslwfasplgigamujxvj`.
@@ -96,6 +104,7 @@ The feature branch removes the superseded five-component weighting and draft pas
 - Existing live applications: two, both Beginner at the last verification. The application rows have not been modified by this implementation slice.
 - `assessment_submissions`: zero rows at the last verification.
 - `assessment_attempts`: zero rows at the last verification. No real applicant attempt was created for testing.
+- Vercel Preview environment is configured read-only; application and assessment mutation requests are rejected before reaching Supabase. Production environment is not set to read-only.
 - Answer-key and attempt tables: RLS enabled; `anon` and `authenticated` cannot select; `service_role` can.
 - GitHub Actions ran all four test files on the latest branch commit: **36/36 passed, 0 failed**.
 - Latest Next.js preview is **READY** at commit `c99a109fe27baee3296d59e8e7017755764c53b3`: https://t4sc-recruitment-website-2wv51wiww-abdulraman123-ais-projects.vercel.app
