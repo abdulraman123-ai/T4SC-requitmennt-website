@@ -5,7 +5,8 @@ type EdgeResult = { data: Record<string, unknown>; status: number };
 
 export async function callT4SCApi(
   action: T4SCApiAction,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  accessToken?: string
 ): Promise<EdgeResult> {
   if (shouldBlockT4SCAction(action, process.env)) {
     return {
@@ -30,7 +31,7 @@ export async function callT4SCApi(
       headers: {
         "Content-Type": "application/json",
         apikey: key,
-        Authorization: `Bearer ${key}`,
+        Authorization: `Bearer ${accessToken || key}`,
       },
       body: JSON.stringify({ ...payload, action }),
       cache: "no-store",
