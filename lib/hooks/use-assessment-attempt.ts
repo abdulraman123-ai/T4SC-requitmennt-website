@@ -47,12 +47,14 @@ export function useAssessmentAttempt({ reference, email, pathway, department }: 
     ? "t4sc-attempt:" + reference + ":" + pathway + ":" + (department || "")
     : "";
 
-  const storeAttempt = useCallback((value: AttemptEnvelope) => {
-    if (!storageKey) return;
+  const storeAttempt = useCallback((value: AttemptEnvelope): boolean => {
+    if (!storageKey) return false;
     try {
       localStorage.setItem(storageKey, JSON.stringify(value));
+      return true;
     } catch {
       setError("This browser could not save the secure attempt details. Enable local storage before starting.");
+      return false;
     }
   }, [storageKey]);
 
@@ -83,7 +85,7 @@ export function useAssessmentAttempt({ reference, email, pathway, department }: 
     if (!response.ok) {
       throw new Error(typeof data.error === "string" ? data.error : "The assessment attempt service could not confirm this action.");
     }
-    return data as { attempt: AttemptData; saved?: boolean; responseVersion?: number; lastSavedAt?: string };
+    return data as { attempt: AttemptData; saved?: boolean; stale?: boolean; responseVersion?: number; lastSavedAt?: string };
   }, []);
 
   useEffect(() => {
@@ -155,7 +157,10 @@ export function useAssessmentAttempt({ reference, email, pathway, department }: 
       envelope = parsed && typeof parsed.idempotencyKey === "string" && typeof parsed.attemptToken === "string"
         ? { idempotencyKey: parsed.idempotencyKey, attemptToken: parsed.attemptToken, ...(typeof parsed.attemptId === "string" ? { attemptId: parsed.attemptId } : {}) }
         : { idempotencyKey: crypto.randomUUID(), attemptToken: crypto.randomUUID() };
-      storeAttempt(envelope);
+      if (!storeAttempt(envelope)) {
+        setPhase("error");
+        return false;
+      }
       const data = await postAttempt({
         action: "attempt_start",
         reference,
@@ -189,6 +194,11 @@ export function useAssessmentAttempt({ reference, email, pathway, department }: 
           responseVersion: nextVersion,
           response,
         });
+        if (data.stale) {
+          setSaveState("not_confirmed");
+          setError("A newer checkpoint exists on the server. Reload this assessment before continuing.");
+          return false;
+        }
         const acceptedVersion = data.responseVersion ?? nextVersion;
         versionRef.current = Math.max(versionRef.current, acceptedVersion);
         setResponseVersion(versionRef.current);
