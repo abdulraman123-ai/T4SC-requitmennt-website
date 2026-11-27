@@ -32,6 +32,7 @@ export async function callT4SCApi(
         "Content-Type": "application/json",
         apikey: key,
         Authorization: `Bearer ${accessToken || key}`,
+        "x-t4sc-api-proxy-secret": process.env.T4SC_API_PROXY_SECRET || "",
       },
       body: JSON.stringify({ ...payload, action }),
       cache: "no-store",
