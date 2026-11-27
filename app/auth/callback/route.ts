@@ -24,6 +24,13 @@ export async function GET(request: NextRequest) {
   } else {
     authError = new Error("Invalid or expired sign-in link.");
   }
-  if (authError) return NextResponse.redirect(new URL("/login?error=callback", url.origin));
+  if (authError) {
+    const destination = safeDestination(url.searchParams.get("next"));
+    const isTeamDestination = destination === "/admin" || destination.startsWith("/admin/");
+    return NextResponse.redirect(new URL(
+      isTeamDestination ? "/login?error=callback" : "/applicant-access?error=callback",
+      url.origin,
+    ));
+  }
   return NextResponse.redirect(new URL(safeDestination(url.searchParams.get("next")), url.origin));
 }
