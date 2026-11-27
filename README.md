@@ -20,11 +20,11 @@ The feature branch contains the founder-approved application form:
 - New experience routes: Beginner, Developing, Experienced. Legacy Advanced records remain supported internally.
 - No mandatory portfolio or file upload. No full date of birth, home address or identity-document collection.
 
-The new wizard preserves a local draft and the server validates the same limits. Email syntax is checked, but email verification and applicant account provisioning are not yet implemented.
+The new wizard preserves a local draft and the server validates the same limits. The feature branch's v1 flow requires a verified Supabase Auth magic-link session and binds each new application to the authenticated user. Production Auth redirect configuration still needs to be set and verified in the Supabase dashboard.
 
 ## Assessment flow — implementation status
 
-The app still uses shortened legacy question screens. They are not the complete official assessment banks in the T4SC AI Developer Execution Pack v1.0. The 42 answer-key records are tagged `legacy-ui-sample-v0` and must not be treated as the production examination. LP-A v0.1 is stored in a private database table in draft-not-approved state; its question bank is not currently exposed to applicants.
+The app still uses shortened legacy question screens. They are not the complete official assessment banks in the T4SC AI Developer Execution Pack v1.0. The 42 answer-key records are tagged `legacy-ui-sample-v0` and must not be treated as the production examination. LP-A v0.1 is stored in a private database table in draft-not-approved state; its question bank is not exposed to applicants or the attempt API.
 
 Target weighting:
 - Common Reasoning: 12 raw marks → 15 weighted points
@@ -36,17 +36,17 @@ The scoring core is versioned but draft-only; it cannot produce a live admission
 
 ## Assessment security and attempt lifecycle
 
-- The T4SC `t4sc-api` Edge Function is deployed as version 7. It fetches objective answer keys server-side. The answer-key table has RLS enabled; `anon` and `authenticated` have no select grant.
+- The T4SC `t4sc-api` Edge Function is deployed as version 8. It fetches objective answer keys server-side. The answer-key table has RLS enabled; `anon` and `authenticated` have no select grant.
 - Database uniqueness enforces one final submission per application/component. Idempotency keys support retries after a lost response.
 - Assessment screens for Common Reasoning, department and practical are connected to server-owned attempt start/read/save actions. The server stores only a SHA-256 hash of the client-generated attempt token.
 - The attempt hook persists the attempt envelope on the applicant's device, restores the latest local/server checkpoint, and saves changed responses every 10 seconds. It shows Saving/Saved/Not confirmed; final submission requires a confirmed latest checkpoint and is bound to the official attempt token.
 - No countdown/expiry is active because the approved time-limit settings are not configured. A complete technical/accessibility reopening workflow remains outstanding.
-- The existing public portal still uses application reference plus email; verified-email accounts, recovery and rate limiting are outstanding.
+- The feature-branch applicant access path now uses verified-email magic links and server-side ownership binding. Production Auth redirect configuration and further lifecycle tests remain outstanding. Rate limiting is not yet implemented.
 - Written/practical automatic evaluation, the full 15-day admissions state machine, alternative-department transfer, formal offers and the 48-hour response job are not complete.
 
 ## Current deployment state
 
-Supabase migrations 0001–0007 are applied. The Edge Function is live at version 7. The Next.js changes remain on `feat/admissions-scoring-core-draft` and its preview; the production site has not been redeployed from this branch.
+Supabase migrations 0001–0009 are applied. The Edge Function is live at version 8. The current branch passes 40 automated tests and a Next.js production build. Vercel could not generate a fresh preview because its daily free-tier deployment API limit was reached. The production site has not been redeployed from this branch.
 
 The GitHub repository is currently public and earlier commits contain browser-side answer-key copies. Treat them as exposed: current branch cleanup does not purge repository history.
 
@@ -66,13 +66,14 @@ The T4SC project is already created separately; do not reuse Axion credentials o
 - supabase/migrations/0006_experienced_route_name.sql
 - supabase/migrations/0007_application_schema_v1.sql
 - supabase/migrations/0008_applicant_auth_identity.sql
+- supabase/migrations/0009_assessment_bank_content.sql
 
 Configure Vercel environment variables:
 - NEXT_PUBLIC_SUPABASE_URL
 - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (preferred) or NEXT_PUBLIC_SUPABASE_ANON_KEY
 - The T4SC Edge Function uses Supabase's server-managed service-role secret internally; do not copy it into client-side code
 
-Application, status and assessment API routes forward requests to the private-data Edge Function. Its deployable source is versioned at `supabase/functions/t4sc-api/index.ts`; the deployed function uses the project-managed service-role secret internally, and that key is never sent to the browser or stored in Vercel. The deployed `t4sc-api` function is version 8. Reviewer access must be implemented with authenticated roles and appropriate RLS policies before reviewers access applicant data. The status endpoint exposes only an applicant's own stage, never answers or reviewer notes.
+Application, status and assessment API routes forward requests to the private-data Edge Function. Its deployable source is versioned at `supabase/functions/t4sc-api/index.ts`; the deployed function uses the project-managed service-role secret internally, and that key is never sent to the browser or stored in Vercel. The deployed `t4sc-api` function is version 8. A private LP-A draft bank is stored in `assessment_bank_content`; it is not published or attempt-enabled. Reviewer access must be implemented with authenticated roles and appropriate RLS policies before reviewers access applicant data. The status endpoint exposes only an applicant's own stage, never answers or reviewer notes.
 
 ## Founder decisions still to confirm before public recruitment promotion
 Geographic eligibility, participation mode, weekly minimum commitment, intake capacity, recruitment deadline/window, assessment language options, application fee, foundation-route support, reapplication period and privacy/retention details. The public copy deliberately does not invent these.
@@ -90,6 +91,11 @@ Geographic eligibility, participation mode, weekly minimum commitment, intake ca
 - `/admin` requires a valid Supabase Auth session. The current page confirms authentication but intentionally does not expose applicant data until T4SC reviewer roles and matching RLS policies are implemented.
 - `/auth/callback` supports Supabase invite, email OTP and PKCE callback links. Configure the Supabase Auth Site URL and redirect allow-list to include the production domain and `/auth/callback`.
 - The browser uses only the Supabase publishable/anon key. Keep all service-role or secret keys server-only.
+
+## Preview safety
+- Vercel Preview has `T4SC_PREVIEW_READ_ONLY=true` and `NEXT_PUBLIC_T4SC_PREVIEW_READ_ONLY=true`.
+- The Next.js API helper blocks applicant and assessment writes in preview/development before they reach Supabase; read-only status checks remain available.
+- Production does not have these preview-only flags.
 
 ## Join T4SC Community and private Telegram access
 - The public homepage includes a dedicated Join T4SC Community section. Its CTA leads to the application; it does not expose a Telegram invite.
