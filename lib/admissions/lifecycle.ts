@@ -207,6 +207,9 @@ export function resolveFormalOfferResponse(
   response: "accept" | "decline",
   respondedAt: string,
 ): FormalOffer {
+  if (offer.status === "accepted" && response === "accept") return offer;
+  if (offer.status === "declined" && response === "decline") return offer;
+  if (offer.status === "expired") return offer;
   if (offer.status !== "offered") throw new Error("This offer has already been resolved.");
   const issued = Date.parse(offer.issuedAt);
   const expires = Date.parse(offer.expiresAt);

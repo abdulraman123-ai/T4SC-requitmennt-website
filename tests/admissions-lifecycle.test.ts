@@ -137,12 +137,27 @@ test("offer response is accepted before expiry and expires at the exact deadline
   assert.equal(resolveFormalOfferResponse(offer,"decline","2026-11-16T00:00:00Z").status,"expired");
 });
 
-test("offer cannot be accepted or declined a second time",()=>{
+test("the same offer response can be safely retried but a reversal is rejected",()=>{
   const offer=createFormalOfferWindow({
     recommendedForAdmission:true,department:"AI & Machine Learning",cycleDay:13,
     cycleStartsAt:"2026-11-01T00:00:00Z",cycleEndsAt:"2026-11-16T00:00:00Z",
     issuedAt:"2026-11-14T00:00:00Z",
   });
   const accepted=resolveFormalOfferResponse(offer,"accept","2026-11-15T10:00:00Z");
+  assert.equal(resolveFormalOfferResponse(accepted,"accept","2026-11-15T11:00:00Z"),accepted);
   assert.throws(()=>resolveFormalOfferResponse(accepted,"decline","2026-11-15T11:00:00Z"),/already been resolved/);
+
+  const declined=resolveFormalOfferResponse(offer,"decline","2026-11-15T10:00:00Z");
+  assert.equal(resolveFormalOfferResponse(declined,"decline","2026-11-15T11:00:00Z"),declined);
+  assert.throws(()=>resolveFormalOfferResponse(declined,"accept","2026-11-15T11:00:00Z"),/already been resolved/);
+});
+
+test("an already-expired offer remains expired when a response is retried",()=>{
+  const offer=createFormalOfferWindow({
+    recommendedForAdmission:true,department:"AI & Machine Learning",cycleDay:13,
+    cycleStartsAt:"2026-11-01T00:00:00Z",cycleEndsAt:"2026-11-16T00:00:00Z",
+    issuedAt:"2026-11-14T00:00:00Z",
+  });
+  const expired=resolveFormalOfferResponse(offer,"accept","2026-11-16T00:00:00Z");
+  assert.equal(resolveFormalOfferResponse(expired,"accept","2026-11-16T00:00:01Z"),expired);
 });
