@@ -51,7 +51,7 @@ Exact thresholds/component minima still require approval and route-level calibra
 
 Migration `0004_assessment_submission_security` is applied. The deployed Edge Function retrieves objective answer keys from `public.assessment_answer_keys` using the stored application department and experience route, then calculates objective marks server-side.
 
-The answer-key table contains 42 entries for the simplified legacy forms: six Common Reasoning questions and three questions for each of 12 department/route combinations. Rows are tagged `legacy-ui-sample-v0`.
+The answer-key table contains 42 entries for the simplified legacy forms: six Common Reasoning questions and three questions for each of 12 department/route combinations. Rows are tagged `legacy-ui-sample-v0`. Separately, migration `0009_assessment_bank_content` added the private assessment-bank content table. It currently contains an LP-A v0.1 record with 10 questions and a 20-mark maximum; its approval status is `draft_not_approved`. It is not yet exposed to applicants or used for admissions scoring.
 
 This is **not** the complete official assessment bank in the execution pack. It does not include the complete CR-A v0.2 or the 12-question department routes. LP-A v0.1 has been stored as a private draft bank in Supabase, but it is not exposed through the applicant UI or attempt API and cannot be started. Do not market the legacy mini-screens as the official examination.
 
@@ -113,12 +113,13 @@ The server API helper blocks application creation, attempt start/save and final 
 - Applied migrations: `0001_t4sc_recruitment_schema`, `0002_application_and_assessment_fields`, `0003_service_role_grants_and_fk_indexes`, `0004_assessment_submission_security`, `0005_assessment_attempts`, `0006_experienced_route_name`, `0007_application_schema_v1`, `0008_applicant_auth_identity`, `0009_assessment_bank_content`.
 - Deployed Edge Function: `t4sc-api`, version **10**, ACTIVE.
 - `private_system_secrets`: one SHA-256 digest for the Next.js-to-Edge-Function proxy credential. RLS is enabled; anon/authenticated have no table grants. The raw credential is a Sensitive Vercel environment variable only. Edge Function v12 requires this proxy credential for the new schema-v1 application flow and all official attempt operations; old production compatibility endpoints remain available until the updated frontend is released.
-- `assessment_answer_keys`: 42 legacy sample rows.
+- `assessment_answer_keys`: 42 legacy sample rows, private to service role.
+- `assessment_bank_content`: one LP-A v0.1 draft, 10 questions / 20 raw marks, status `draft_not_approved`.
 - Existing live applications: two, both Beginner at the last verification. The application rows have not been modified by this implementation slice.
 - `assessment_submissions`: zero rows at the last verification.
 - `assessment_attempts`: zero rows at the last verification. No real applicant attempt was created for testing.
 - Vercel Preview environment is configured read-only; application and assessment mutation requests are rejected before reaching Supabase. Production environment is not set to read-only.
-- Answer-key and attempt tables: RLS enabled; `anon` and `authenticated` cannot select; `service_role` can.
+- Answer-key, assessment-bank, attempt and private-secret tables: RLS enabled; `anon` and `authenticated` cannot select; `service_role` can.
 - GitHub Actions on commit `81b4500bca94df36c1cdd344a190a99f28511fb5`: **42/42 tests passed**; `next build` compiled, TypeScript passed and all 24 routes were generated. A the latest all-action proxy experiment was narrowed for backward compatibility with the current production frontend; Edge v12 is deployed and the feature-branch CI has been rerun.
 - The CI workflow includes a build-only placeholder Supabase URL/publishable key and read-only preview flags; it never uses production applicant data.
 - Vercel Preview has read-only environment flags and the API helper blocks applicant/assessment writes before Supabase.
@@ -144,6 +145,12 @@ Migration `0010_private_api_proxy_secret` adds `public.private_system_secrets`. 
 The Next.js helper is marked `server-only` and sends the credential in `x-t4sc-api-proxy-secret`. Edge Function v12 hashes the supplied value and compares it with the stored digest before it accepts the new schema-v1 application path or any official attempt start/read/save and attempt-bound final submission. This prevents direct invocation of the new verified-account/attempt flow. The old production form, old reference/email status lookup and legacy submission path remain compatible until the new frontend is merged and released. The Vercel Preview write guard independently blocks mutations before the Edge Function is called.
 
 Legacy API compatibility remains for the existing production form/status path until the new branch is merged. The proxy secret is not stored in source control or sent to browser components. Vercel Preview write blocking remains an independent guard, so a preview request is rejected before it reaches Supabase.
+
+### 9. Private Next.js-to-Edge proxy authentication
+
+Migration `0010_private_api_proxy_secret` created a hash-only record in `public.private_system_secrets`. A high-entropy server-only `T4SC_API_PROXY_SECRET` has now been set as a Sensitive Vercel environment variable for production, preview and development; only its SHA-256 digest is stored in Supabase. The Edge Function requires the matching `x-t4sc-api-proxy-secret` header for all API actions, including legacy compatibility operations. The Next.js API helper sends this header only from server-side code and fails closed if it is not configured. The legacy helper on `main` was also patched to send the header so the older production routes can continue to call the protected Edge Function.
+
+This is a shared server-to-server secret, not an applicant credential. It must never use a `NEXT_PUBLIC_` prefix, be returned to the browser, or appear in logs. Rotate it by updating both the Vercel Sensitive variable and the stored hash together.
 
 ## Remaining launch blockers
 
