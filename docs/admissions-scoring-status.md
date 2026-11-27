@@ -1,12 +1,17 @@
-# T4SC admissions scoring core — implementation status
+# T4SC admissions and assessment security — implementation status
 
 **Specification basis:** T4SC AI Developer Execution Pack v1.0, dated 27 November 2026  
-**Ruleset version:** t4sc-2026-11-27-draft-1  
-**Status:** Draft implementation only — not connected to production admissions decisions
+**Scoring ruleset:** t4sc-2026-11-27-draft-1  
+**Assessment-key version in live database:** legacy-ui-sample-v0  
+**Git branch:** feat/admissions-scoring-core-draft  
+**GitHub pull request:** https://github.com/abdulraman123-ai/T4SC-requitmennt-website/pull/1  
+**Status:** Partial implementation. Not ready for a live recruitment cohort.
 
-## What this change contains
+## Delivered in this implementation slice
 
-The new lib/admissions/scoring.ts module provides a small, versioned implementation of the scoring arithmetic described in the opening execution manual:
+### 1. Versioned admissions scoring core — draft only
+
+The module at `lib/admissions/scoring.ts` implements the four-component weighting arithmetic:
 
 | Component | Raw maximum | Weighted maximum |
 | --- | ---: | ---: |
@@ -16,40 +21,76 @@ The new lib/admissions/scoring.ts module provides a small, versioned implementat
 | Practical Assessment | 40 | 40 |
 | **Total** | **92** | **100** |
 
-For each available component, the weighted contribution is raw score / raw maximum * weighted maximum. Values retain full precision internally. Missing components remain null; the overall total remains unavailable until all four components exist. Out-of-range or non-finite scores are rejected.
+Each available contribution uses raw score / raw maximum × weighted maximum. Full precision is retained internally. Missing component marks remain null and the total remains unavailable until all four are present. Invalid, negative, non-finite and over-maximum values are rejected.
 
-The file also records the candidate initial and final progression thresholds from the opening manual. Functions return only pending, draft-pass or draft-not-pass, include the ruleset version, and always identify the result as non-live.
+The candidate initial and final gates from the execution pack are encoded only for inspection and tests. They are not production rules:
 
-## Why the rules are not activated
+- `ADMISSIONS_RULESET_STATUS = "draft-not-for-production"`
+- `LIVE_ADMISSIONS_DECISIONS_ENABLED = false`
+- No applicant API route or Edge Function uses this module to issue an admission decision.
 
-The execution pack's later founder-confirmed admissions update says exact qualifying thresholds and component minima still require final approval, and automated written/practical evaluator outputs must be validated against reference-marked samples for every route. The pack also says a scoring failure must remain pending/technical, never become an invented zero or rejection.
+The pack's later founder-confirmed update still requires final approval of exact thresholds and component floors, plus validated automatic rubric scoring for every route. No live admission decision is produced by this code.
 
-Accordingly:
+### 2. Server-side objective answer scoring
 
-- ADMISSIONS_RULESET_STATUS is draft-not-for-production.
-- LIVE_ADMISSIONS_DECISIONS_ENABLED is false.
-- The functions are not imported by applicant routes, API handlers, the Supabase Edge Function or admin pages.
-- No live applicant status, assessment record or existing database row is changed by this code.
+The deployed `t4sc-api` Edge Function is now version 3. The browser no longer supplies a score that the backend trusts. For objective multiple-choice submissions, the function retrieves answer keys from `public.assessment_answer_keys` using the application's stored department and experience level, then calculates the objective mark on the server.
 
-## Tests
+The answer-key table has RLS enabled and no browser-role grants:
 
-The unit tests cover version/status guards, all component maxima, full-precision conversion, incomplete scores, invalid ranges, initial-gate boundaries, final-gate boundaries and per-component minimums.
+- `anon`: cannot select
+- `authenticated`: cannot select
+- `service_role`: can select
 
-Run with Node 22.6+ using npm run test:admissions. This uses Node's built-in test runner and TypeScript type stripping; it introduces no test dependency.
+The table has 42 seeded rows: six keys for the current Common Reasoning mini-screen and three keys for each of the 12 simplified department/level mini-screens. Every row is tagged `legacy-ui-sample-v0`.
 
-## Current implementation blockers before live admissions
+**Important limitation:** these 42 keys match the current simplified legacy UI questions. They are not the complete official CR-A v0.2 (10 questions), department route banks (12 questions each), or LP-A v0.1 (10 questions) in the execution pack. They are not approved for a live admissions exam. The live API currently scores the objective portion of these legacy forms only; written and practical rubric scoring is still pending.
 
-1. Replace the client-exposed assessment answer keys and incomplete sample questions with the latest versioned assessment banks. Complete all 12 department/experience routes plus Common Reasoning and Learning Potential; retain protected answer keys server-side.
-2. Complete independent question/key/rubric review and route-level pilot/calibration. The pack explicitly says current draft banks are not yet approved for live examination.
-3. Build the rubric-based automated written/practical scoring service. Store criterion marks, evidence/reasons, confidence, evaluator version and rubric version; define a safe pending/technical state on failure.
-4. Add server-authoritative assessment attempts, one-attempt enforcement, idempotent save/submit receipts and 10-second autosave with the documented Saving/Saved/Pending sync/Connection lost/Save failed/Submitted states. The current API accepts client-supplied scores and does not enforce a unique attempt.
-5. Build server-side application state transitions, primary/alternative department routing and the 15-calendar-day cycle, including an offer timestamp and full 48-hour response deadline. Do not infer or manually force admission from a client request.
-6. Complete individual applicant accounts, email verification/recovery, private applicant records and role-scoped staff access. The present reference-plus-email lookup is not a replacement for the account-based portal specified in the pack.
-7. Implement reviewer roles/RLS, audit events and the restricted correction/recalculation process before exposing applicant records to staff.
-8. Complete privacy, retention, age/guardian-consent, safeguarding, support and provider/data-location reviews before processing a live recruitment cohort. Use synthetic data until those launch gates pass.
-9. Test phone-only completion, accessibility, low-bandwidth/reconnect handling, cross-applicant isolation, backup/restore and incident response.
-10. The connected GitHub repository is currently public, while the execution pack specifies a private repository. Restricting visibility is an account-level change and is not performed by this code change.
+Written/practical submissions are stored with a pending rubric-scoring state. A missing key produces a technical-review state rather than a zero. The overall `score` column remains null, and no final weighted admissions score is issued.
 
-## Verification boundary
+### 3. One final submission per component
 
-The scoring module and its unit tests can be verified independently. This change does not certify the assessment banks, evaluator quality, applicant portal, database state machine, staff permissions, privacy/safeguarding readiness or production admissions process. It must not be represented as making T4SC ready to accept or decide a live admissions cohort.
+Migration `0004_assessment_submission_security` is applied to the T4SC Supabase project. It adds:
+
+- A unique database index on `(application_id, pathway)`, enforcing one final submission per component.
+- An optional idempotency UUID so a retry after a lost response can return the existing receipt rather than create a second submission.
+- A database check on objective score ranges and scoring-state values.
+- A server-only answer-key table.
+
+The preview front-end branch sends an idempotency key for general, department and practical final submissions. The server returns a receipt only after confirming the database insert.
+
+The live database was checked before migration: two application rows existed and there were zero assessment submissions. After migration and key seeding, there are still zero assessment submissions. No applicant row or answer was changed.
+
+### 4. Build and unit tests
+
+The Node built-in test suite contains 15 tests:
+
+- 10 tests for weighting, missing marks, score bounds and draft progression-gate behavior.
+- 5 tests for objective answer scoring, malformed/incomplete answers and missing-key failure.
+
+Verified locally on Node 22.16.0: **15/15 tests passed** using `node --experimental-strip-types --test tests/admissions-scoring.test.ts tests/assessment-objective.test.ts`.
+
+The latest Vercel feature-branch preview is **READY**:
+https://t4sc-recruitment-website-95q7xl09g-abdulraman123-ais-projects.vercel.app
+
+The preview build compiled, type-checked and generated the app routes. This is a preview branch, not the production domain.
+
+## Boundaries and remaining launch blockers
+
+1. **Incomplete assessment banks.** Replace the current 6-question Common Reasoning and three-question department mini-screens with the exact latest question-bank revisions in the execution pack, including LP-A and all 12 department routes. Do not represent the seeded legacy keys as the official assessment bank.
+2. **Historic repository exposure.** The GitHub repository is public. Earlier commits contain browser-side answer-key copies. Removing keys from the current branch does not erase historical Git objects or public clones. Treat these old question keys as exposed; rotate/replace the bank and make the repository private through GitHub account settings before relying on question secrecy. The available GitHub connector does not provide a repository-visibility update action.
+3. **Rubric-based automatic evaluation.** Build and validate the approved written/practical scoring evaluator. Persist criterion-level marks, evidence/reasons, confidence, evaluator version, rubric version and timestamp. A scoring error must remain pending/technical, never become zero or rejection.
+4. **Assessment attempt lifecycle.** The current implementation locks duplicate final submissions, but it does not yet implement server-created attempt start, server-authoritative timer/deadline, attempt resume, 10-second autosave, confirmed save checkpoints or controlled technical/accessibility reopening.
+5. **Authentication and rate limiting.** Assessment verification still uses application reference plus email. It is not the account-based, verified-email applicant experience specified by the pack. Add individual applicant accounts, email verification/recovery, server session checks, and proportionate endpoint rate limits before live use.
+6. **Full admissions state machine.** Only coarse progress labels are updated after submission. There is no automated initial qualifying checkpoint, primary/alternative department evaluation, transfer opportunity, final gate, 15-day operating cycle, offer issuance or 48-hour accept/decline workflow yet.
+7. **Reviewer permissions and audit.** The admin screen still confirms sign-in only. Reviewer roles, role-scoped RLS, append-only audit events and the verified correction/recalculation process are not implemented.
+8. **Privacy and safeguarding.** Complete the documented privacy, retention/deletion, age-band/guardian-consent, safeguarding, support, jurisdiction and provider/data-location reviews before using applicant information for a real cohort.
+9. **Phone/accessibility validation.** Run actual phone-only, low-bandwidth, reconnect, accessibility, shared-device and cross-applicant isolation tests. Current preview build success is not a substitute for these tests.
+10. **Experience-route naming.** The current application/database uses Beginner, Developing and Advanced. The execution pack uses Beginner, Developing and Experienced. Reconcile the current approved terminology consistently before publishing recruitment.
+
+## Operational note
+
+The Supabase Edge Function version 3 and database migration 0004 are deployed to the live T4SC Supabase project. The Next.js changes in this pull request are on a feature branch with a READY preview; they have not been merged into `main` or deployed to the production website. The production website itself has not been redeployed in this implementation slice.
+
+The RLS advisor's “RLS enabled, no policy” messages are informational for these tables: browser roles have no table grants, and the private Edge Function uses its server-managed service-role credential. Do not add broad authenticated policies merely to silence that notice.
+
+This is a partial security and scoring foundation, not a declaration that T4SC admissions is launch-ready.
