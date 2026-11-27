@@ -4,7 +4,7 @@ import { shouldBlockT4SCAction } from "../lib/t4sc-api-policy.ts";
 
 test("preview deployments block application and assessment writes", () => {
   const preview = { VERCEL_ENV: "preview", NODE_ENV: "production", T4SC_PREVIEW_READ_ONLY: "true" };
-  for (const action of ["application_submit", "assessment_submit", "attempt_start", "attempt_save"] as const) {
+  for (const action of ["application_submit", "assessment_submit", "attempt_start", "attempt_save", "offer_respond"] as const) {
     assert.equal(shouldBlockT4SCAction(action, preview), true);
   }
 });
