@@ -24,7 +24,7 @@ The new wizard preserves a local draft and the server validates the same limits.
 
 ## Assessment flow — implementation status
 
-The app still uses shortened legacy question screens. They are not the complete official assessment banks in the T4SC AI Developer Execution Pack v1.0. The 42 answer-key records are tagged `legacy-ui-sample-v0` and must not be treated as the production examination.
+The app still uses shortened legacy question screens. They are not the complete official assessment banks in the T4SC AI Developer Execution Pack v1.0. The 42 answer-key records are tagged `legacy-ui-sample-v0` and must not be treated as the production examination. LP-A v0.1 is stored in a private database table in draft-not-approved state; its question bank is not currently exposed to applicants.
 
 Target weighting:
 - Common Reasoning: 12 raw marks → 15 weighted points
