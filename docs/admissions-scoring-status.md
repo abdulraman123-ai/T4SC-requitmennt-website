@@ -97,7 +97,7 @@ The preview build compiled, type-checked and generated the app routes. This is a
 7. **Reviewer permissions and audit.** The admin screen still confirms sign-in only. Reviewer roles, role-scoped RLS, append-only audit events and the verified correction/recalculation process are not implemented.
 8. **Privacy and safeguarding.** Complete the documented privacy, retention/deletion, age-band/guardian-consent, safeguarding, support, jurisdiction and provider/data-location reviews before using applicant information for a real cohort.
 9. **Phone/accessibility validation.** Run actual phone-only, low-bandwidth, reconnect, accessibility, shared-device and cross-applicant isolation tests. Current preview build success is not a substitute for these tests.
-10. **Experience-route naming.** The current application/database uses Beginner, Developing and Advanced. The execution pack uses Beginner, Developing and Experienced. Reconcile the current approved terminology consistently before publishing recruitment.
+10. **Experience-route naming — updated.** New applications now use Beginner, Developing and Experienced. The database retains Advanced as a legacy-compatible value for old records; the Edge Function maps legacy Advanced assessments to the Experienced answer-key set.
 
 ## Operational note
 
