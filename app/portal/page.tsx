@@ -22,14 +22,12 @@ const labels: Record<string, string> = {
   onboarding: "Onboarding",
   active_member: "Active member",
 };
-const communityEligibleStatuses = ["admitted", "onboarding", "active_member"];
 
 export default function Portal() {
   const router = useRouter();
   const [verifiedEmail, setVerifiedEmail] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
   const [reference, setReference] = useState("");
-  const [email, setEmail] = useState("");
   const [status, setStatus] = useState<any>(null);
   const [admissions, setAdmissions] = useState<any>(null);
   const [offer, setOffer] = useState<any>(null);
@@ -37,8 +35,6 @@ export default function Portal() {
   const [offerError, setOfferError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [inviteUrl, setInviteUrl] = useState("");
-  const [inviteMessage, setInviteMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -53,7 +49,6 @@ export default function Portal() {
         }
         const normalized = data.user.email.trim().toLowerCase();
         setVerifiedEmail(normalized);
-        setEmail(normalized);
       } catch {
         if (active) router.replace("/applicant-access?next=%2Fportal");
       } finally {
@@ -76,8 +71,6 @@ export default function Portal() {
     setAdmissions(null);
     setOffer(null);
     setOfferError("");
-    setInviteUrl("");
-    setInviteMessage("");
 
     try {
       const response = await fetch("/api/applications/status", {
@@ -92,26 +85,6 @@ export default function Portal() {
       setStatus(data.application);
       setAdmissions(data.admissions ?? null);
       setOffer(data.offer ?? null);
-      if (communityEligibleStatuses.includes(data.application.status)) {
-        try {
-          const accessResponse = await fetch("/api/community-access", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reference, email: verifiedEmail }),
-            cache: "no-store",
-          });
-          const accessData = await accessResponse.json();
-          if (accessResponse.ok && typeof accessData.inviteUrl === "string") {
-            setInviteUrl(accessData.inviteUrl);
-          } else {
-            setInviteMessage(accessData.error || "Your admission is recorded, but the invitation is not available yet. Please contact T4SC admissions.");
-          }
-        } catch {
-          setInviteMessage("Your admission is recorded, but we could not load the invitation. Please contact T4SC admissions.");
-        }
-      } else {
-        setInviteMessage("Telegram access is shared privately after successful admission and completion of the required screening and assessment stages.");
-      }
     } catch (lookupError) {
       setError(lookupError instanceof Error ? lookupError.message : "Status lookup failed.");
     } finally {
@@ -136,21 +109,6 @@ export default function Portal() {
       setAdmissions(data.admissions ?? null);
       if (data.applicationStatus) {
         setStatus((current: any) => current ? { ...current, status: data.applicationStatus, updated_at: new Date().toISOString() } : current);
-      }
-      if (response === "accept" && data.offer?.status === "accepted") {
-        try {
-          const accessResponse = await fetch("/api/community-access", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reference: status.reference, email: verifiedEmail }),
-            cache: "no-store",
-          });
-          const accessData = await accessResponse.json();
-          if (accessResponse.ok && typeof accessData.inviteUrl === "string") setInviteUrl(accessData.inviteUrl);
-          else setInviteMessage(accessData.error || "Your offer is accepted. The community invitation is not available yet.");
-        } catch {
-          setInviteMessage("Your offer is accepted. We could not load the community invitation; contact T4SC admissions.");
-        }
       }
     } catch (err) {
       setOfferError(err instanceof Error ? err.message : "Your offer response could not be confirmed.");
@@ -221,21 +179,17 @@ export default function Portal() {
           )}
           <p className="small-note">This status is private. The admissions team will communicate decisions through the contact route supplied in your application.</p>
 
-          <div className="community-access-card">
-            <span className="section-kicker">/ JOIN T4SC COMMUNITY</span>
-            {inviteUrl ? (
-              <>
-                <h3>Your community invitation is ready.</h3>
-                <p>Your application has been marked as admitted. Use this private invitation to join the T4SC Telegram community. Please do not share it publicly.</p>
-                <a className="button" href={inviteUrl} target="_blank" rel="noopener noreferrer">Join T4SC on Telegram <ArrowUpRight size={15} /></a>
-              </>
-            ) : (
-              <>
-                <h3>Community access follows admission.</h3>
-                <p>{inviteMessage || "Successful applicants receive their Telegram invitation privately after the screening and assessment process."}</p>
-              </>
-            )}
-          </div>
+          {admissions?.status === "offer_accepted" && offer?.status === "accepted" && (
+            <div className="community-access-card">
+              <span className="section-kicker">WELCOME TO T4SC</span>
+              <h3>Welcome to T4SC</h3>
+              <p>You have accepted your T4SC admission offer. Your next step is to join the official Telegram community to access your department spaces and community announcements.</p>
+              <p className="small-note">Your request to join may be reviewed by a T4SC administrator before access is granted.</p>
+              <a className="button" href="/api/community-access" target="_blank" rel="noopener noreferrer">
+                Join T4SC Community <ArrowUpRight size={15} />
+              </a>
+            </div>
+          )}
         </section>
       )}
 

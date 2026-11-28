@@ -118,9 +118,12 @@ Geographic eligibility, participation mode, weekly minimum commitment, intake ca
 - The Next.js API helper blocks applicant and assessment writes in preview/development before they reach Supabase; read-only status checks remain available.
 - Production does not have these preview-only flags. The separate server-only `T4SC_API_PROXY_SECRET` is required by Edge Function v12 for new schema-v1 application submissions, attempt start/read/save and attempt-bound final submissions. The legacy production form and reference/email status lookup remain compatible until the frontend is merged and released.
 
-## Join T4SC Community and private Telegram access
-- The public homepage includes a dedicated Join T4SC Community section. Its CTA leads to the application; it does not expose a Telegram invite.
-- The applicant portal requests a Telegram invitation only after the applicant's reference and email have been verified and the recorded status is `admitted`, `onboarding` or `active_member`.
-- Configure `T4SC_TELEGRAM_INVITE_URL` as a **Sensitive** server-side Vercel environment variable. Never prefix it with `NEXT_PUBLIC_` and never put the invite in client components or source control.
-- The `/api/community-access` route re-checks the application status on the server before returning the invite and sends `Cache-Control: no-store`.
-- A shared Telegram invite can still be forwarded by a recipient. For stricter one-person admission, replace it later with unique, limited-use Telegram invite links generated through an authenticated Telegram bot.
+## Join T4SC Community — Offer Accepted only
+
+- The public homepage can invite visitors to apply, but no Telegram invitation is public.
+- The applicant dashboard shows **Welcome to T4SC** only when the authenticated owner's server-returned admissions record is exactly `offer_accepted` and the matching formal-offer record is exactly `accepted`. Recommendations, issued offers, declined offers, expired offers and other applicant states do not qualify.
+- Clicking **Join T4SC Community** calls the same-origin `GET /api/community-access` endpoint. It checks the signed-in account against the database again and responds with a `303` no-store redirect. The invite URL is never returned as JSON, put in page props, or included in a client-side bundle.
+- Both the invite URL and the explicit confirmation flag are server-only Vercel Production variables: `T4SC_TELEGRAM_INVITE_URL` (Sensitive) and `T4SC_TELEGRAM_JOIN_REQUESTS_CONFIRMED=true` (plain server-only). Do not set either for Preview or Development. Leave the feature fail-closed until the separate Telegram join-request link has been created, tested, and old unrestricted links have been revoked.
+- Telegram's admin-approved join request is the second access-control layer. Administrators manually compare each request with an Offer Accepted T4SC record; an uncertain requester remains pending. Do not add Telegram username, phone, identity-document or bot-based identity-matching requirements.
+- To rotate the shared invitation, update the Sensitive Production variable; no code release is required. Set the confirmation flag back to false while rotating/testing.
+

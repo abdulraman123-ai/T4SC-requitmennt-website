@@ -5,7 +5,8 @@ export type T4SCApiAction =
   | "attempt_start"
   | "attempt_read"
   | "attempt_save"
-  | "offer_respond";
+  | "offer_respond"
+  | "community_access";
 
 export interface RuntimeEnvironment {
   T4SC_PREVIEW_READ_ONLY?: string;

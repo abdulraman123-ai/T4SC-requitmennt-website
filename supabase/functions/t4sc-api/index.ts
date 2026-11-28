@@ -75,7 +75,7 @@ Deno.serve(async (request: Request) => {
 
     const proxyProtectedAction =
       (body.action === "application_submit" && body.applicationSchemaVersion === "t4sc-application-v1") ||
-      ["attempt_start", "attempt_read", "attempt_save", "offer_respond"].includes(body.action) ||
+      ["attempt_start", "attempt_read", "attempt_save", "offer_respond", "community_access"].includes(body.action) ||
       (body.action === "assessment_submit" && (body.attemptId !== undefined || body.attemptToken !== undefined));
 
     if (proxyProtectedAction) {
@@ -168,6 +168,53 @@ Deno.serve(async (request: Request) => {
       }).select("reference").single();
       if (error) return json({ error: "We could not save your application. Please try again later." }, 503);
       return json({ reference: data.reference }, 201);
+    }
+
+
+    if (body.action === "community_access") {
+      if (!authenticatedApplicant) {
+        return json({ error: "Sign in with your verified applicant account to access the community." }, 401);
+      }
+
+      // Resolve the application from the verified Auth identity, never from a
+      // client-supplied reference, email, application ID or status.
+      const { data: ownedApplications, error: ownedApplicationsError } = await db.from("applications")
+        .select("id")
+        .eq("auth_user_id", authenticatedApplicant.id)
+        .limit(100);
+      if (ownedApplicationsError) {
+        return json({ error: "We could not verify your T4SC membership. Please retry." }, 503);
+      }
+      const applicationIds = (ownedApplications ?? []).map((item: { id: string }) => item.id);
+      if (applicationIds.length === 0) {
+        return json({ error: "Community access is available only to applicants who have accepted a T4SC offer." }, 403);
+      }
+
+      const [admissionsResult, offersResult] = await Promise.all([
+        db.from("application_admissions")
+          .select("application_id")
+          .in("application_id", applicationIds)
+          .eq("status", "offer_accepted"),
+        db.from("admission_offers")
+          .select("application_id")
+          .in("application_id", applicationIds)
+          .eq("status", "accepted"),
+      ]);
+      if (admissionsResult.error || offersResult.error) {
+        return json({ error: "We could not verify your accepted offer. Please retry." }, 503);
+      }
+
+      const acceptedOfferApplicationIds = new Set(
+        (offersResult.data ?? []).map((item: { application_id: string }) => item.application_id)
+      );
+      const hasAcceptedOffer = (admissionsResult.data ?? []).some(
+        (item: { application_id: string }) => acceptedOfferApplicationIds.has(item.application_id)
+      );
+      if (!hasAcceptedOffer) {
+        return json({ error: "Community access is available only after your T4SC admission offer has been accepted." }, 403);
+      }
+
+      return json({ eligible: true });
     }
 
     if (body.action === "status_lookup") {

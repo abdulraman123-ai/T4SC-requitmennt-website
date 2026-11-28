@@ -1,66 +1,63 @@
 import { NextResponse } from "next/server";
-import { callT4SCApi } from "@/lib/t4sc-api";
 import { getVerifiedApplicantContext } from "@/lib/applicant-auth";
+import { getSafeTelegramInviteUrl } from "@/lib/community-access";
+import { callT4SCApi } from "@/lib/t4sc-api";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-const eligibleStatuses = new Set(["admitted", "onboarding", "active_member"]);
-const noStoreHeaders = { "Cache-Control": "no-store, max-age=0" };
+const privateHeaders = {
+  "Cache-Control": "private, no-store, max-age=0",
+  "Pragma": "no-cache",
+  "Referrer-Policy": "no-referrer",
+  "X-Robots-Tag": "noindex, nofollow, noarchive",
+  "Vary": "Cookie",
+};
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    if (
-      !body ||
-      typeof body !== "object" ||
-      Array.isArray(body) ||
-      typeof body.reference !== "string" ||
-      typeof body.email !== "string" ||
-      body.reference.length > 40 ||
-      body.email.length > 254 ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)
-    ) {
-      return NextResponse.json({ error: "Enter your application reference and email address." }, { status: 400, headers: noStoreHeaders });
-    }
+function pendingSetupRedirect(request: Request) {
+  return NextResponse.redirect(new URL("/community-access-pending", request.url), {
+    status: 303,
+    headers: privateHeaders,
+  });
+}
 
-    const applicant = await getVerifiedApplicantContext();
-    if (!applicant || body.email.trim().toLowerCase() !== applicant.email) {
-      return NextResponse.json({ error: "Sign in with the verified email linked to your application to request community access." }, { status: 401, headers: noStoreHeaders });
-    }
-    const verification = await callT4SCApi("status_lookup", {
-      reference: body.reference,
-      email: body.email,
-    }, applicant.accessToken);
-    if (verification.status !== 200) {
-      return NextResponse.json({ error: "We could not verify this application. Check your reference and email." }, { status: verification.status, headers: noStoreHeaders });
-    }
-
-    const application = verification.data.application as { status?: string } | undefined;
-    if (!application?.status || !eligibleStatuses.has(application.status)) {
-      return NextResponse.json({ error: "Community invitations are issued after successful admission and completion of the required stages." }, { status: 403, headers: noStoreHeaders });
-    }
-
-    const invitation = process.env.T4SC_TELEGRAM_INVITE_URL;
-    if (!invitation) {
-      return NextResponse.json({ error: "Your admission is recorded, but the community invitation is not available yet. Please contact T4SC admissions." }, { status: 503, headers: noStoreHeaders });
-    }
-
-    let inviteUrl: URL;
-    try {
-      inviteUrl = new URL(invitation);
-    } catch {
-      return NextResponse.json({ error: "The community invitation is not configured correctly. Please contact T4SC admissions." }, { status: 503, headers: noStoreHeaders });
-    }
-
-    const isTelegramInvite = inviteUrl.protocol === "https:" &&
-      inviteUrl.hostname === "t.me" &&
-      (/^\/\+[^/]+$/.test(inviteUrl.pathname) || /^\/joinchat\/[^/]+$/.test(inviteUrl.pathname));
-    if (!isTelegramInvite) {
-      return NextResponse.json({ error: "The community invitation is not configured correctly. Please contact T4SC admissions." }, { status: 503, headers: noStoreHeaders });
-    }
-
-    return NextResponse.json({ inviteUrl: inviteUrl.toString() }, { headers: noStoreHeaders });
-  } catch {
-    return NextResponse.json({ error: "Invalid community access request." }, { status: 400, headers: noStoreHeaders });
+export async function GET(request: Request) {
+  const applicant = await getVerifiedApplicantContext();
+  if (!applicant) {
+    return NextResponse.json(
+      { error: "Sign in with your verified applicant account to access the T4SC community." },
+      { status: 401, headers: privateHeaders },
+    );
   }
+
+  const authorization = await callT4SCApi("community_access", {}, applicant.accessToken);
+  if (authorization.status !== 200 || authorization.data.eligible !== true) {
+    return NextResponse.json(
+      { error: "Community access is available only to the owner of an application with an accepted T4SC offer." },
+      { status: authorization.status === 503 ? 503 : 403, headers: privateHeaders },
+    );
+  }
+
+  // Keep invitation access off in Preview and Development even if someone
+  // accidentally configures a shared secret for those environments.
+  if (process.env.VERCEL_ENV !== "production" || process.env.NODE_ENV !== "production") {
+    return pendingSetupRedirect(request);
+  }
+
+  // The URL is kept server-side and is enabled only after Telegram's
+  // Request Admin Approval flow has been manually tested and old open links
+  // have been revoked.
+  if (process.env.T4SC_TELEGRAM_JOIN_REQUESTS_CONFIRMED !== "true") {
+    return pendingSetupRedirect(request);
+  }
+
+  const inviteUrl = getSafeTelegramInviteUrl(process.env.T4SC_TELEGRAM_INVITE_URL);
+  if (!inviteUrl) {
+    return pendingSetupRedirect(request);
+  }
+
+  return NextResponse.redirect(inviteUrl, {
+    status: 303,
+    headers: privateHeaders,
+  });
 }
