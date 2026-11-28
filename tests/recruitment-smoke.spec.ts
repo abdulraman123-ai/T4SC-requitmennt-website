@@ -61,3 +61,18 @@ test("reviewer API rejects an unauthenticated browser request", async ({ request
   });
   expect(response.status()).toBe(401);
 });
+
+test("public admissions guide does not publish unvalidated scores or pass bands", async ({ page }) => {
+  await page.goto("/admissions");
+  await expect(page.getByRole("heading", { name: /Potential over/i })).toBeVisible();
+  await expect(page.getByText(/70–100/)).toHaveCount(0);
+  await expect(page.getByText(/55–69/)).toHaveCount(0);
+  await expect(page.getByText(/35 points/)).toHaveCount(0);
+  await expect(page.getByText(/full scoring rubrics are still under validation/i)).toBeVisible();
+});
+
+test("Learning Potential is clearly marked as not yet enabled", async ({ page }) => {
+  await page.goto("/assessments");
+  await expect(page.getByRole("heading", { name: /Learning potential component/i })).toBeVisible();
+  await expect(page.getByText(/Under validation — not currently enabled/i)).toBeVisible();
+});
