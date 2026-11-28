@@ -89,7 +89,7 @@ export default async function ApplicationReview({ params }: Props) {
             <p className="small-note">{new Date(String(item.created_at)).toLocaleString()}</p>
           </article>
         ))}
-        {reviewerRole==="admissions_admin" && <ReviewerStatusForm reference={String(app.reference)} currentStatus={String(app.status)} />}
+        {reviewerRole==="admissions_admin" && !["admitted","conditional_foundation","waitlisted","not_selected","withdrawn","onboarding","active_member"].includes(String(app.status)) && <ReviewerStatusForm reference={String(app.reference)} currentStatus={String(app.status)} />}
       </section>
     </main>
   );

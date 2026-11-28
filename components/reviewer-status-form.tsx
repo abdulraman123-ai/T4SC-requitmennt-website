@@ -14,7 +14,8 @@ const statuses = [
 
 export function ReviewerStatusForm({ reference, currentStatus }: { reference: string; currentStatus: string }) {
   const router = useRouter();
-  const [newStatus,setNewStatus] = useState(currentStatus);
+  const allowedStatuses = ["needs_review","general_screening","department_assessment","practical_task","clarification","under_review"];
+  const [newStatus,setNewStatus] = useState(allowedStatuses.includes(currentStatus) ? currentStatus : "needs_review");
   const [reason,setReason] = useState("");
   const [error,setError] = useState("");
   const [saved,setSaved] = useState("");
