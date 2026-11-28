@@ -14,7 +14,7 @@ export default defineConfig({
     timeout: 8_000,
   },
   webServer: {
-    command: "npm run dev",
+    command: "npm run start",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
