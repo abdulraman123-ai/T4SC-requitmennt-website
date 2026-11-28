@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 15
     env:
       CI: "true"
-      PLAYWRIGHT_BASE_URL: https://t4sc-recruitment-website.vercel.app
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
 
     steps:
       - name: Check out repository
@@ -36,6 +36,17 @@ jobs:
 
       - name: Install project dependencies
         run: npm install --no-package-lock --no-audit --no-fund
+
+      - name: Type-check project
+        run: npm run lint
+
+      - name: Build application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_build_placeholder
+          T4SC_PREVIEW_READ_ONLY: "true"
+          NEXT_PUBLIC_T4SC_PREVIEW_READ_ONLY: "true"
 
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
