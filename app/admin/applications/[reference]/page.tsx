@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { getVerifiedApplicantContext } from "@/lib/applicant-auth";
 import { callT4SCApi } from "@/lib/t4sc-api";
 import { ReviewerNoteForm } from "@/components/reviewer-note-form";
+import { ReviewerStatusForm } from "@/components/reviewer-status-form";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,8 @@ export default async function ApplicationReview({ params }: Props) {
   const submissions = Array.isArray(result.data.submissions) ? result.data.submissions as Record<string, unknown>[] : [];
   const scoreRecords = Array.isArray(result.data.scoreRecords) ? result.data.scoreRecords as Record<string, unknown>[] : [];
   const notes = Array.isArray(result.data.notes) ? result.data.notes as Record<string, unknown>[] : [];
+  const statusHistory = Array.isArray(result.data.statusHistory) ? result.data.statusHistory as Record<string, unknown>[] : [];
+  const reviewerRole = typeof result.data.reviewerRole === "string" ? result.data.reviewerRole : "reviewer";
   const fields: [string, unknown][] = [
     ["Preferred name",app.preferred_name],["Email",app.email],["Country",app.country],["Region",app.region],
     ["Primary department",app.department],["Experience route",app.assessment_level],["Why this department",app.why_department],
@@ -75,6 +78,18 @@ export default async function ApplicationReview({ params }: Props) {
         <div className="section-heading"><span className="section-kicker">INTERNAL REVIEW</span><h2>Reviewer notes</h2></div>
         {notes.map((note,index)=><article className="content-card" key={String(note.created_at)+index}><p>{String(note.note)}</p><p className="small-note">{new Date(String(note.created_at)).toLocaleString()}</p></article>)}
         <ReviewerNoteForm reference={String(app.reference)} />
+      </section>
+
+      <section className="page-section">
+        <div className="section-heading"><span className="section-kicker">REVIEW HISTORY</span><h2>{statusHistory.length} recorded status change{statusHistory.length===1?"":"s"}</h2></div>
+        {statusHistory.length===0 ? <p className="small-note">No review-stage changes have been recorded.</p> : statusHistory.map((item,index)=>(
+          <article className="content-card" key={String(item.created_at)+index}>
+            <h3>{String(item.previous_status).replaceAll("_"," ")} → {String(item.new_status).replaceAll("_"," ")}</h3>
+            <p>{String(item.reason)}</p>
+            <p className="small-note">{new Date(String(item.created_at)).toLocaleString()}</p>
+          </article>
+        ))}
+        {reviewerRole==="admissions_admin" && <ReviewerStatusForm reference={String(app.reference)} currentStatus={String(app.status)} />}
       </section>
     </main>
   );
