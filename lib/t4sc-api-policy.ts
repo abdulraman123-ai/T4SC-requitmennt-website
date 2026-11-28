@@ -1,4 +1,5 @@
 export type T4SCApiAction =
+  | "applicant_signup"
   | "application_submit"
   | "status_lookup"
   | "assessment_submit"
@@ -15,6 +16,7 @@ export interface RuntimeEnvironment {
 }
 
 const MUTATING_ACTIONS = new Set<T4SCApiAction>([
+  "applicant_signup",
   "application_submit",
   "assessment_submit",
   "attempt_start",
