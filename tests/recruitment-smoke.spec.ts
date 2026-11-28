@@ -1,8 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function seedApplicantRoute(page: Page, completeGeneral: boolean = false) {
-  await page.goto("/");
-  await page.evaluate((generalComplete) => {
+  await page.addInitScript((generalComplete) => {
     localStorage.setItem("t4sc-application-reference", "QA-ONLY-NOT-A-REAL-APPLICATION");
     localStorage.setItem("t4sc-application-email", "playwright.qa@example.com");
     localStorage.setItem(
