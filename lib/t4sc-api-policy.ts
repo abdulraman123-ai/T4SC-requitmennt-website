@@ -7,13 +7,22 @@ export type T4SCApiAction =
   | "attempt_read"
   | "attempt_save"
   | "offer_respond"
-  | "community_access";
+  | "community_access"
+  | "reviewer_list"
+  | "reviewer_detail"
+  | "reviewer_add_note";
 
 export interface RuntimeEnvironment {
   T4SC_PREVIEW_READ_ONLY?: string;
   VERCEL_ENV?: string;
   NODE_ENV?: string;
 }
+
+const PRIVATE_REVIEW_ACTIONS = new Set<T4SCApiAction>([
+  "reviewer_list",
+  "reviewer_detail",
+  "reviewer_add_note",
+]);
 
 const MUTATING_ACTIONS = new Set<T4SCApiAction>([
   "applicant_signup",
@@ -37,5 +46,7 @@ export function isT4SCReadOnlyRuntime(environment: RuntimeEnvironment): boolean 
 }
 
 export function shouldBlockT4SCAction(action: T4SCApiAction, environment: RuntimeEnvironment): boolean {
-  return isT4SCMutationAction(action) && isT4SCReadOnlyRuntime(environment);
+  return (isT4SCMutationAction(action) || PRIVATE_REVIEW_ACTIONS.has(action)) &&
+    isT4SCReadOnlyRuntime(environment);
 }
+
