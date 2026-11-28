@@ -1,68 +1,99 @@
 # T4SC — Tech 4 Skill Community
 
-A multi-page recruitment and admissions website for T4SC, based on the Axion Marketplace Next.js project foundation and adapted for T4SC.
+A mobile-first public recruitment site and private applicant/reviewer portal for T4SC. The public site introduces the community; admission remains selective and never happens through a public Telegram invitation.
 
 ## Public pages
-- Home, About, Departments, Admissions, Recruitment journey, Assessment framework
-- Multi-step application form with local draft saving and a review stage
-- Community code of conduct, privacy and accessibility pages
-- Applicant portal for private status lookup
-- General screening, department/level assessment, practical task and completion pages
-- Team sign-in page with Supabase email/password authentication and a protected reviewer workspace landing page
-- Applicant portal for private status lookup
 
-## Application questions
-The form follows the T4SC Recruitment & Admissions System Specification:
-- Preferred name, email, country/region and optional alternative contact
-- Primary department, optional secondary interest and reason for department choice
-- Beginner / Developing / Advanced level, what the applicant has tried or built, optional tools/topics
-- Motivation and a technology problem the applicant would like to solve
-- Weekly availability, session/team availability, device and connectivity
-- Community-rules, honesty and privacy acknowledgements
-- Optional accessibility/assessment adjustments
+- Home, About, Departments, Admissions, Recruitment Journey and Assessment Framework
+- Multi-step application form with per-account local draft saving
+- Community Code of Conduct, Privacy and Accessibility information
+- Applicant account creation and sign-in at `/applicant-access`
+- Applicant portal at `/portal`
+- General screening, department assessment, practical task and completion pages
+- Team sign-in at `/login`
+- Restricted reviewer workspace at `/admin` and private application detail pages
 
-No exact date of birth or age gate is used. Device/connectivity answers are for participation planning, not a measure of ability. Previous technical experience and a beginner portfolio are not compulsory.
+## T4SC departments
 
-## Assessment flow
+1. AI & Machine Learning
+2. Game Development
+3. Full Stack Development & System Architecture
+4. Cybersecurity & Systems Security
+
+## Application form
+
+Applicants must sign in to a T4SC applicant account before submission. The form collects only the existing application details: preferred name, email, country/region, optional contact, primary and secondary department interest, experience route, experience description, tools/topics, motivation, problem to solve, scheduled-session/collaboration availability, device access, internet reliability, declarations and optional accessibility needs.
+
+The former weekly-hours question is not part of the form. Session availability, device access and internet reliability remain. Previous technical experience and a portfolio are not compulsory; a beginner can state that they are just starting.
+
+The server binds a submission to the verified applicant account. Draft answers are stored in that browser under the signed-in email. Existing database applications are not rewritten by the application UI.
+
+## Current applicant-facing assessment flow
+
 1. Application
-2. Common general screening (reasoning, problem decomposition, learning response, communication and judgement; approximately 20–30 minutes)
-3. Department assessment (4 departments × 3 experience levels)
-4. Practical task (approximately 30–60 minutes; written, pseudocode, small code or no-code alternatives)
-5. Human review and private decision communication
+2. Common reasoning assessment (six objective questions and three short written responses)
+3. Department assessment matched to one of the four departments and the declared route
+4. Bounded practical task with written, pseudocode, code or no-code response formats
+5. Private human review
 
-Scoring framework: reasoning 15, department fundamentals 25, practical task 35, learning/feedback 15, communication/integrity/collaboration 10. Automated checks do not make final admissions decisions. Cybersecurity tasks use fictional scenarios, supplied samples or explicitly authorised labs only.
+Assessment attempts are created by the server. Start, resume and checkpoint saves are bound to the application owner. Final submissions are idempotent and locked after a confirmed receipt. Objective answer keys are read by the server and are not included in the applicant components.
 
-## Design and accessibility
-Responsive multi-page navigation, dark navy base with warm orange/yellow accents, animated ambient background, scroll reveal, floating/orbiting hero elements and reduced-motion support. Motion is CSS-led and lightweight; the site respects the user's reduced-motion preference.
+### Assessment and admissions status
+
+The separate Learning Potential question bank is still marked draft-not-approved and is not exposed as an official live assessment. The full assessment rubrics/evaluator have not been validated against independent reference-scored samples. Therefore:
+
+- No public pass threshold is advertised.
+- No automated pass/fail or final admissions decision is active.
+- Objective question checks do not constitute an admission result.
+- Formal offers and admission decisions are not issued by the current live workflow.
+
+The website must not be promoted as a fully operational admissions cycle until the assessment bank, reviewer rubric, intake rules and decision process have been approved and tested.
+
+## Private reviewer workflow
+
+- Reviewer access requires a verified Supabase Auth session and an active row in `reviewer_memberships`.
+- A normal applicant account does not grant reviewer access.
+- The workspace lists applications and shows application details, assessment submissions, score records and internal reviewer notes.
+- An admissions administrator can move an application only through non-final stages: Needs review, General screening, Department assessment, Practical task, Clarification or Under review.
+- Each status update requires a reason and is written atomically to `reviewer_status_history`.
+- Admission, rejection, waitlist, onboarding and active-member outcomes cannot be set through the status editor.
+- Browser roles have no direct table access; reviewer data is returned only by the protected server-to-server Edge Function.
+
+The initial admissions-admin membership is provisioned in the private database. Add or remove reviewer roles only through a trusted administrative procedure.
+
+## Telegram and community access
+
+The homepage's Join T4SC Community CTA leads to the application, not a Telegram group. Community access requires the verified applicant owner to have accepted a formal offer. The server will return the invitation only after the private invite URL is configured and the Telegram join-request approval flow is confirmed. Do not place an unrestricted invite in client code, page metadata or repository files.
 
 ## Stack
-Next.js 16, React 19, TypeScript, Tailwind CSS 4, Supabase and Vercel.
 
-## Supabase setup required before live submissions
-Create a separate T4SC Supabase project. Do not reuse Axion credentials or the Axion database. Apply:
-- supabase/migrations/0001_t4sc_recruitment.sql
-- supabase/migrations/0002_application_and_assessment_fields.sql
+Next.js 16, React 19, TypeScript, Tailwind CSS 4, Supabase Auth/Postgres/Edge Functions and Vercel.
 
-Configure Vercel environment variables:
-- NEXT_PUBLIC_SUPABASE_URL
-- NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (preferred) or NEXT_PUBLIC_SUPABASE_ANON_KEY
-- The T4SC Edge Function uses Supabase's server-managed service-role secret internally; do not copy it into client-side code
+## Environment
 
-Application, status and assessment API routes forward validated requests to the private-data Edge Function. Its deployable source is versioned at `supabase/functions/t4sc-api/index.ts`; the deployed function uses the project-managed service-role secret internally, and that key is never sent to the browser or stored in Vercel. Reviewer access must be implemented with authenticated roles and appropriate RLS policies before real reviewers access data. The status endpoint exposes only the applicant's own stage, never answers, scores or reviewer notes.
+Client-side values:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (preferred) or `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-## Founder decisions still to confirm before public recruitment promotion
-Geographic eligibility, participation mode, weekly minimum commitment, intake capacity, recruitment deadline/window, assessment language options, application fee, foundation-route support, reapplication period and privacy/retention details. The public copy deliberately does not invent these.
+Server-only sensitive values:
+- `T4SC_API_PROXY_SECRET`
+- `T4SC_TELEGRAM_INVITE_URL` (leave unset until the approved private join-request invitation is ready)
 
+Never put a service-role key or private proxy secret in `NEXT_PUBLIC_*` variables, browser code or source control. Vercel Preview is configured read-only for application and assessment writes.
 
-## Team sign-in
-- `/login` is for authorised T4SC team accounts only; public self-registration is disabled.
-- `/admin` requires a valid Supabase Auth session. The current page confirms authentication but intentionally does not expose applicant data until T4SC reviewer roles and matching RLS policies are implemented.
-- `/auth/callback` supports Supabase invite, email OTP and PKCE callback links. Configure the Supabase Auth Site URL and redirect allow-list to include the production domain and `/auth/callback`.
-- The browser uses only the Supabase publishable/anon key. Keep all service-role or secret keys server-only.
+## Automated checks
 
-## Join T4SC Community and private Telegram access
-- The public homepage includes a dedicated Join T4SC Community section. Its CTA leads to the application; it does not expose a Telegram invite.
-- The applicant portal requests a Telegram invitation only after the applicant's reference and email have been verified and the recorded status is `admitted`, `onboarding` or `active_member`.
-- Configure `T4SC_TELEGRAM_INVITE_URL` as a **Sensitive** server-side Vercel environment variable. Never prefix it with `NEXT_PUBLIC_` and never put the invite in client components or source control.
-- The `/api/community-access` route re-checks the application status on the server before returning the invite and sends `Cache-Control: no-store`.
-- A shared Telegram invite can still be forwarded by a recipient. For stricter one-person admission, replace it later with unique, limited-use Telegram invite links generated through an authenticated Telegram bot.
+GitHub Actions runs TypeScript checks, a Next.js production build and Playwright browser tests against a local CI app in desktop Chromium and mobile Chromium. Test fixtures use synthetic localStorage values only; they do not submit applications or create Supabase records.
+
+Run locally:
+- `npm run lint`
+- `npm run build`
+- `npm test`
+
+## Decisions still required before public intake
+
+The original T4SC specification leaves geography, participation mode, intake capacity, application window, assessment language, application fee, foundation-route support, reapplication rules, privacy retention and mixed-age safeguarding/guardian procedures for founder confirmation. These are not invented by the website.
+
+## Security note
+
+The repository has legacy commits containing client-side sample assessment answer keys from an earlier prototype. Those are tagged as legacy sample content and must never be reused as official live assessment material. The current applicant UI no longer ships those answer keys.
