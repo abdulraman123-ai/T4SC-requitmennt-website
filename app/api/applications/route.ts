@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     if (isSchemaV1) {
       const applicant = await getVerifiedApplicantContext();
       if (!applicant) {
-        return NextResponse.json({ error: "Sign in with your verified email link before submitting your application." }, { status: 401 });
+        return NextResponse.json({ error: "Sign in to your T4SC applicant account before submitting your application." }, { status: 401 });
       }
       if (typeof body.email !== "string" || body.email.trim().toLowerCase() !== applicant.email) {
         return NextResponse.json({ error: "The application email must match the verified account email." }, { status: 403 });
