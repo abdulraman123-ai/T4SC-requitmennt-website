@@ -74,6 +74,7 @@ Deno.serve(async (request: Request) => {
     const body = await request.json();
 
     const proxyProtectedAction =
+      body.action === "applicant_signup" ||
       (body.action === "application_submit" && body.applicationSchemaVersion === "t4sc-application-v1") ||
       ["attempt_start", "attempt_read", "attempt_save", "offer_respond", "community_access"].includes(body.action) ||
       (body.action === "assessment_submit" && (body.attemptId !== undefined || body.attemptToken !== undefined));
@@ -91,6 +92,66 @@ Deno.serve(async (request: Request) => {
       if (proxySecretError || !proxySecret || !constantTimeEqual(suppliedHash, proxySecret.secret_sha256)) {
         return json({ error: "This request must use the authorised T4SC application server." }, 401);
       }
+    }
+
+    if (body.action === "applicant_signup") {
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      const password = typeof body.password === "string" ? body.password : "";
+      const signupIpHash = typeof body.signupIpHash === "string" ? body.signupIpHash : "";
+      if (!validEmail(email) || email.length > 254) {
+        return json({ error: "Enter a valid email address." }, 400);
+      }
+      if (password.length < 10 || password.length > 128) {
+        return json({ error: "Your password must be at least 10 characters long." }, 400);
+      }
+      if (!/^[a-f0-9]{64}$/i.test(signupIpHash)) {
+        return json({ error: "We could not validate this sign-up request. Please try again." }, 400);
+      }
+
+      const now = Date.now();
+      const hourAgo = new Date(now - 60 * 60 * 1000).toISOString();
+      const dayAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+      await db.from("applicant_signup_attempts")
+        .delete()
+        .eq("ip_hash", signupIpHash)
+        .lt("created_at", dayAgo);
+
+      const [hourly, daily] = await Promise.all([
+        db.from("applicant_signup_attempts").select("id", { count: "exact", head: true })
+          .eq("ip_hash", signupIpHash).gte("created_at", hourAgo),
+        db.from("applicant_signup_attempts").select("id", { count: "exact", head: true })
+          .eq("ip_hash", signupIpHash).gte("created_at", dayAgo),
+      ]);
+      if (hourly.error || daily.error) {
+        return json({ error: "Account creation is temporarily unavailable. Please try again." }, 503);
+      }
+      if ((hourly.count ?? 0) >= 5 || (daily.count ?? 0) >= 12) {
+        return json({ error: "Too many sign-up attempts from this connection. Please try again later." }, 429);
+      }
+
+      const { error: rateRecordError } = await db.from("applicant_signup_attempts")
+        .insert({ ip_hash: signupIpHash });
+      if (rateRecordError) {
+        return json({ error: "Account creation is temporarily unavailable. Please try again." }, 503);
+      }
+
+      const { error: createError } = await db.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { account_type: "applicant" },
+      });
+      if (createError) {
+        const message = createError.message.toLowerCase();
+        const alreadyExists = message.includes("already") || message.includes("registered") || message.includes("exists");
+        return json({
+          error: alreadyExists
+            ? "An account for this email may already exist. Switch to Sign in."
+            : "We could not create your account. Check your details and try again.",
+        }, alreadyExists ? 409 : 400);
+      }
+
+      return json({ created: true }, 201);
     }
 
     if (body.action === "application_submit") {
