@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@/components/sign-out-button";
-import { getVerifiedApplicantContext } from "@/lib/applicant-auth";
+import { getApplicantSessionContext } from "@/lib/applicant-auth";
 import { callT4SCApi } from "@/lib/t4sc-api";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ type ReviewApplication = {
 };
 
 export default async function Admin() {
-  const reviewer = await getVerifiedApplicantContext();
+  const reviewer = await getApplicantSessionContext();
   if (!reviewer) redirect("/login?next=%2Fadmin");
 
   const result = await callT4SCApi("reviewer_list", {}, reviewer.accessToken);

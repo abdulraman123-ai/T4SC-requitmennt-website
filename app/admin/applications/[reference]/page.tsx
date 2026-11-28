@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { getVerifiedApplicantContext } from "@/lib/applicant-auth";
+import { getApplicantSessionContext } from "@/lib/applicant-auth";
 import { callT4SCApi } from "@/lib/t4sc-api";
 import { ReviewerNoteForm } from "@/components/reviewer-note-form";
 import { ReviewerStatusForm } from "@/components/reviewer-status-form";
@@ -11,7 +11,7 @@ type Props = { params: Promise<{ reference: string }> };
 
 export default async function ApplicationReview({ params }: Props) {
   const { reference } = await params;
-  const reviewer = await getVerifiedApplicantContext();
+  const reviewer = await getApplicantSessionContext();
   if (!reviewer) redirect("/login?next=%2Fadmin");
 
   const result = await callT4SCApi("reviewer_detail", { reference }, reviewer.accessToken);

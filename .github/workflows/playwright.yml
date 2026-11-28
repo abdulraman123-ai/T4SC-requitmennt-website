@@ -40,6 +40,9 @@ jobs:
       - name: Type-check project
         run: npm run lint
 
+      - name: Test application ownership rules
+        run: npm run test:security
+
       - name: Build application
         run: npm run build
         env:
