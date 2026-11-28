@@ -4,7 +4,7 @@ import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/env";
 type EdgeResult = { data: Record<string, unknown>; status: number };
 
 export async function callT4SCApi(
-  action: "application_submit" | "status_lookup" | "assessment_submit",
+  action: "applicant_signup" | "application_submit" | "status_lookup" | "assessment_submit",
   payload: Record<string, unknown>
 ): Promise<EdgeResult> {
   const url = getSupabaseUrl();
