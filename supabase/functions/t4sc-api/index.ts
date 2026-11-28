@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { scoreObjectiveAnswers } from "./_shared/assessment-scoring.ts";
 import { hashAttemptToken, isResponsePayload, isResponseVersion } from "./_shared/attempt-security.ts";
 import { validateApplicationV1 } from "./_shared/application-validation.ts";
+import { isApplicationOwnedByUser } from "./_shared/application-owner.ts";
 import { constantTimeEqual, sha256Hex } from "./_shared/proxy-security.ts";
 
 const departments = ["AI & Machine Learning","Game Development","Full Stack Development & System Architecture","Cybersecurity & Systems Security"];
@@ -19,18 +20,12 @@ function validUuid(value: unknown): value is string {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 async function ensureApplicationOwner(
-  db: ReturnType<typeof createClient>,
+  _db: ReturnType<typeof createClient>,
   application: { id: string; auth_user_id?: string | null },
   user: { id: string; email?: string | null },
   requestedEmail: string,
 ): Promise<boolean> {
-  // Password-only signup does not prove control of an email inbox. Never
-  // attach a pre-existing, unowned application using an email-string match.
-  // New applications are linked to auth_user_id when they are created. Older
-  // unlinked records require a separate administrator-led identity review.
-  const normalizedEmail = requestedEmail.trim().toLowerCase();
-  if (!user.email || user.email.trim().toLowerCase() !== normalizedEmail) return false;
-  return Boolean(application.auth_user_id && application.auth_user_id === user.id);
+  return isApplicationOwnedByUser(application, user, requestedEmail);
 }
 
 function receipt(data: { id: string; submitted_at: string; scoring_status: string }, pathway: string) {
