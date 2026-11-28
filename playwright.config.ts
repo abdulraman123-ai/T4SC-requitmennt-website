@@ -1,7 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL =
-  process.env.PLAYWRIGHT_BASE_URL ?? "https://t4sc-recruitment-website.vercel.app";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 
 export default defineConfig({
   testDir: "./tests",
@@ -13,6 +12,17 @@ export default defineConfig({
   timeout: 30_000,
   expect: {
     timeout: 8_000,
+  },
+  webServer: {
+    command: "npm run start",
+    url: baseURL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: "",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "",
+    },
   },
   use: {
     baseURL,

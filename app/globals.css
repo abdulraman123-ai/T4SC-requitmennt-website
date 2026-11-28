@@ -48,3 +48,22 @@
 .admin-account span{font-size:11px;color:#aab9ca;overflow-wrap:anywhere}
 @media(max-width:720px){.hero-orbit,.motion-art .ring,.hero-core,.float-chip{animation:none!important}.ambient-grid{opacity:.35}.ticker-track{animation-duration:60s}.site-header .nav-login{font-size:11px}}
 @media(max-width:430px){.auth-panel{padding:23px 18px}.header-actions{gap:10px}.site-header .nav-login{font-size:10px}}
+
+
+/* Private reviewer evidence is readable on desktop and narrow screens. */
+.review-evidence {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.48);
+  color: inherit;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.reviewer-note-form { display: grid; gap: 1rem; }
+.reviewer-note-form .form-field textarea { width: 100%; min-height: 8rem; }
