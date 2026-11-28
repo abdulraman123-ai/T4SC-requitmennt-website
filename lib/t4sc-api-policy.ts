@@ -10,7 +10,8 @@ export type T4SCApiAction =
   | "community_access"
   | "reviewer_list"
   | "reviewer_detail"
-  | "reviewer_add_note";
+  | "reviewer_add_note"
+  | "reviewer_set_status";
 
 export interface RuntimeEnvironment {
   T4SC_PREVIEW_READ_ONLY?: string;
@@ -22,6 +23,7 @@ const PRIVATE_REVIEW_ACTIONS = new Set<T4SCApiAction>([
   "reviewer_list",
   "reviewer_detail",
   "reviewer_add_note",
+  "reviewer_set_status",
 ]);
 
 const MUTATING_ACTIONS = new Set<T4SCApiAction>([
