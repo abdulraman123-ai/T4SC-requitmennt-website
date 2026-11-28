@@ -5,7 +5,7 @@ import { callT4SCApi } from "@/lib/t4sc-api";
 export const runtime = "nodejs";
 
 function validEmail(value: unknown): value is string {
-  return typeof value === "string" && value.length <= 254 && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
+  return typeof value === "string" && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 export async function POST(request: Request) {
