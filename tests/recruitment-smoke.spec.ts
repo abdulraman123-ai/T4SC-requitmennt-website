@@ -26,7 +26,7 @@ test("public home page loads", async ({ page }) => {
 test("application form requires a signed-in applicant account", async ({ page }) => {
   await page.goto("/apply");
   await expect(page).toHaveURL(/applicant-access\?next=%2Fapply/);
-  await expect(page.getByRole("button", { name: /create account/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create account", exact: true })).toBeVisible();
 });
 
 test("common screening stage renders questions and written responses", async ({ page }) => {
