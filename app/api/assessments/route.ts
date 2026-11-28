@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     if (body.attemptId !== undefined || body.attemptToken !== undefined) {
       const applicant = await getVerifiedApplicantContext();
       if (!applicant) {
-        return NextResponse.json({ error: "Sign in with your verified applicant email before submitting an assessment." }, { status: 401, headers: { "Cache-Control": "no-store" } });
+        return NextResponse.json({ error: "Sign in to your T4SC applicant account before submitting an assessment." }, { status: 401, headers: { "Cache-Control": "no-store" } });
       }
       if (typeof body.email === "string" && body.email.trim().toLowerCase() !== applicant.email) {
         return NextResponse.json({ error: "This assessment belongs to a different verified account." }, { status: 403, headers: { "Cache-Control": "no-store" } });
