@@ -63,7 +63,7 @@ export default function Portal() {
   async function check(e: React.FormEvent) {
     e.preventDefault();
     if (!verifiedEmail) {
-      setError("Sign in with your verified applicant email to view your status.");
+      setError("Sign in with your applicant account to view your status.");
       return;
     }
     setBusy(true);
