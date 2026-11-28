@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-async function seedApplicantRoute(page, completeGeneral = false) {
+async function seedApplicantRoute(page: Page, completeGeneral: boolean = false) {
   await page.goto("/");
   await page.evaluate((generalComplete) => {
     localStorage.setItem("t4sc-application-reference", "QA-ONLY-NOT-A-REAL-APPLICATION");
