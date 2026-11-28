@@ -97,3 +97,10 @@ The original T4SC specification leaves geography, participation mode, intake cap
 ## Security note
 
 The repository has legacy commits containing client-side sample assessment answer keys from an earlier prototype. Those are tagged as legacy sample content and must never be reused as official live assessment material. The current applicant UI no longer ships those answer keys.
+
+
+## Applicant identity and older applications
+
+Applicant accounts use email/password sign-in without a sign-up verification link. This supports immediate account access, but **sign-in does not prove that the person controls the email inbox**. New applications are linked to the authenticated account ID at creation. For safety, a pre-existing application with no `auth_user_id` is not automatically claimed merely because an account supplies a matching email; it requires separate administrator-led identity reconciliation before applicant access can be granted. Do not treat the Supabase email-confirmed flag set during password-only account provisioning as proof of mailbox ownership.
+
+Reviewer database objects are versioned in migrations `0019_reviewer_memberships.sql` and `0020_reviewer_status_history.sql`. The initial admissions-admin role is assigned separately through a trusted database operation; personal Auth user IDs are not hard-coded into public migrations.

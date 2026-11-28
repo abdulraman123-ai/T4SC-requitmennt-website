@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { callT4SCApi } from "@/lib/t4sc-api";
-import { getVerifiedApplicantContext } from "@/lib/applicant-auth";
+import { getApplicantSessionContext } from "@/lib/applicant-auth";
 
 export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store, max-age=0" };
@@ -17,9 +17,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Offer response details are incomplete." }, { status: 400, headers: noStore });
     }
 
-    const applicant = await getVerifiedApplicantContext();
+    const applicant = await getApplicantSessionContext();
     if (!applicant) {
-      return NextResponse.json({ error: "Sign in with your verified applicant account to respond to an offer." }, { status: 401, headers: noStore });
+      return NextResponse.json({ error: "Sign in with your signed-in applicant account to respond to an offer." }, { status: 401, headers: noStore });
     }
 
     const result = await callT4SCApi("offer_respond", {

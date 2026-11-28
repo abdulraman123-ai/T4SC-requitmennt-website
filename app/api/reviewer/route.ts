@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getVerifiedApplicantContext } from "@/lib/applicant-auth";
+import { getApplicantSessionContext } from "@/lib/applicant-auth";
 import { callT4SCApi } from "@/lib/t4sc-api";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid reviewer request." }, { status: 400, headers: noStore });
     }
 
-    const reviewer = await getVerifiedApplicantContext();
+    const reviewer = await getApplicantSessionContext();
     if (!reviewer) {
       return NextResponse.json({ error: "Sign in with an authorised T4SC reviewer account." }, { status: 401, headers: noStore });
     }

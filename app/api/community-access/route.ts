@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getVerifiedApplicantContext } from "@/lib/applicant-auth";
+import { getApplicantSessionContext } from "@/lib/applicant-auth";
 import { getSafeTelegramInviteUrl } from "@/lib/community-access";
 import { callT4SCApi } from "@/lib/t4sc-api";
 
@@ -22,10 +22,10 @@ function pendingSetupRedirect(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const applicant = await getVerifiedApplicantContext();
+  const applicant = await getApplicantSessionContext();
   if (!applicant) {
     return NextResponse.json(
-      { error: "Sign in with your verified applicant account to access the T4SC community." },
+      { error: "Sign in with your signed-in applicant account to access the T4SC community." },
       { status: 401, headers: privateHeaders },
     );
   }

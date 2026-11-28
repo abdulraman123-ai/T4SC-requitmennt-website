@@ -1,12 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 
-export interface VerifiedApplicantContext {
+export interface ApplicantSessionContext {
   userId: string;
   email: string;
   accessToken: string;
 }
 
-export async function getVerifiedApplicantContext(): Promise<VerifiedApplicantContext | null> {
+// Authenticates the signed-in T4SC account. Password-only signup does not verify mailbox ownership.
+// Never use this session check to auto-link older applications based only on an email-string match.
+export async function getApplicantSessionContext(): Promise<ApplicantSessionContext | null> {
   try {
     const supabase = await createClient();
     const { data: userData, error: userError } = await supabase.auth.getUser();
