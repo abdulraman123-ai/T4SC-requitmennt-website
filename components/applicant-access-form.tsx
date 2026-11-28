@@ -29,7 +29,7 @@ export function ApplicantAccessForm() {
     if (busy) return;
 
     const normalizedEmail = email.trim().toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       setError("Enter a valid email address.");
       return;
     }
