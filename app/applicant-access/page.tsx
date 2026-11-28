@@ -16,15 +16,15 @@ export default function ApplicantAccessPage() {
         <div className="auth-mark" aria-hidden="true">T4</div>
         <span className="section-kicker">T4SC · APPLICANT ACCESS</span>
         <h1>Your account.<br/><span className="gradient-text">Your application.</span></h1>
-        <p className="auth-description">Use an email address you control. We will send a one-time sign-in link to verify the address and open your private applicant workspace. No password is required.</p>
-        <Suspense fallback={<p className="small-note">Preparing secure sign-in…</p>}>
+        <p className="auth-description">Create an applicant account with your email and a password, or sign in to an existing account. Your account is saved directly to T4SC and you can continue immediately — no email sign-in link is sent.</p>
+        <Suspense fallback={<p className="small-note">Preparing applicant access…</p>}>
           <ApplicantAccessForm />
         </Suspense>
         <div className="auth-links">
           <Link href="/privacy-policy">Privacy notice ↗</Link>
           <Link href="/code-of-conduct">Community rules ↗</Link>
         </div>
-        <p className="auth-footnote">Never share a sign-in link or one-time code with anyone, including someone claiming to be T4SC support.</p>
+        <p className="auth-footnote">Keep your password private. T4SC staff will never ask you to share it.</p>
       </section>
     </main>
   );
