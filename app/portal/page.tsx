@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowUpRight, Search } from "lucide-react";
+import { isOfferAcceptedForCommunity } from "@/lib/community-access";
 
 const labels: Record<string, string> = {
   submitted: "Submitted",
@@ -179,7 +180,7 @@ export default function Portal() {
           )}
           <p className="small-note">This status is private. The admissions team will communicate decisions through the contact route supplied in your application.</p>
 
-          {admissions?.status === "offer_accepted" && offer?.status === "accepted" && (
+          {isOfferAcceptedForCommunity(admissions?.status, offer?.status) && (
             <div className="community-access-card">
               <span className="section-kicker">WELCOME TO T4SC</span>
               <h3>Welcome to T4SC</h3>
